@@ -21,7 +21,7 @@ const WALL_EXT = 14;
 
 // Tile types
 const GND=0, WALL=1, WDEST=2, BUSH=3, WATER=4,
-      CARPET=5, STONE=6, DIRT=7, GRAVEL=8, WOOD=9;
+      CARPET=5, STONE=6, DIRT=7, GRAVEL=8, WOOD=9, DOOR=10;
 
 // Decoration layer (drawn on top of ground, below entities)
 // Each cell can have a deco id or -1
@@ -57,24 +57,24 @@ fill(14,14,15,15,WATER);
 // Enceinte hall
 wRow(3,7,11); wRow(3,16,20);
 // Portes hall haut
-MAP[3][12]=GND; MAP[3][13]=GND; MAP[3][14]=GND; MAP[3][15]=GND;
-wRow(10,7,11); MAP[10][12]=GND; wRow(10,13,14); MAP[10][15]=GND; wRow(10,16,20);
+MAP[3][12]=DOOR; MAP[3][13]=GND; MAP[3][14]=GND; MAP[3][15]=DOOR;
+wRow(10,7,11); MAP[10][12]=DOOR; wRow(10,13,14); MAP[10][15]=DOOR; wRow(10,16,20);
 wCol(7,4,9); wCol(20,4,9);
 
 // Enceinte caves
 wRow(11,0,COLS-1);
-MAP[11][5]=GND; MAP[11][6]=GND; // porte cave gauche
-MAP[11][14]=GND; MAP[11][15]=GND; // porte cave droite
+MAP[11][5]=DOOR; MAP[11][6]=DOOR; // porte cave gauche
+MAP[11][14]=DOOR; MAP[11][15]=DOOR; // porte cave droite
 wRow(ROWS-1,0,COLS-1);
 wCol(0,12,ROWS-2); wCol(COLS-1,12,ROWS-2);
 wCol(11,12,ROWS-2);
-MAP[15][11]=GND; MAP[16][11]=GND; // passage entre caves
+MAP[15][11]=DOOR; MAP[16][11]=DOOR; // passage entre caves
 
 // Murs intérieurs caves
 wRow(15,1,4); wRow(15,7,10);
 wCol(5,12,14);
 fill(13,22,14,22,WALL); fill(17,22,18,22,WALL);
-wRow(17,13,17); MAP[17][15]=GND;
+wRow(17,13,17); MAP[17][15]=DOOR;
 
 // Murs destructibles
 const destPos=[[4,9],[4,18],[6,7],[6,20],[8,9],[8,18],
@@ -131,21 +131,31 @@ resize();window.addEventListener('resize',resize);
 // ==================== SPRITES ====================
 const idleBackImg=new Image(),walkBackImg=new Image();
 const idleFrontImg=new Image(),walkFrontImg=new Image();
+const zIdleFront=new Image(),zWalkFront=new Image();
+const zIdleBack=new Image(),zWalkBack=new Image();
 let spritesLoaded=0;
-function onSpriteLoad(){if(++spritesLoaded===4)requestAnimationFrame(gameLoop);}
+const TOTAL_SPRITES=8;
+function onSpriteLoad(){if(++spritesLoaded===TOTAL_SPRITES)requestAnimationFrame(gameLoop);}
 idleBackImg.onload=onSpriteLoad;walkBackImg.onload=onSpriteLoad;
 idleFrontImg.onload=onSpriteLoad;walkFrontImg.onload=onSpriteLoad;
+zIdleFront.onload=onSpriteLoad;zWalkFront.onload=onSpriteLoad;
+zIdleBack.onload=onSpriteLoad;zWalkBack.onload=onSpriteLoad;
 idleBackImg.src='public/assets/sprites/heroes/angel-monster/idle.png';
 walkBackImg.src='public/assets/sprites/heroes/angel-monster/walk.png';
 idleFrontImg.src='public/assets/sprites/heroes/angel-monster/idle-front.png';
 walkFrontImg.src='public/assets/sprites/heroes/angel-monster/walk-front.png';
+zIdleFront.src='public/assets/sprites/enemies/zombie-normal/idle-front.png';
+zWalkFront.src='public/assets/sprites/enemies/zombie-normal/walk-front.png';
+zIdleBack.src='public/assets/sprites/enemies/zombie-normal/idle-back.png';
+zWalkBack.src='public/assets/sprites/enemies/zombie-normal/walk-back.png';
 
 // ==================== ENTITIES ====================
 const player={x:14*TILE+TILE/2,y:7*TILE+TILE/2,hp:6,maxHp:6,name:'Angel',frame:0,animTimer:0,moving:false,bobTimer:0,bobY:0,facingDown:false};
 const zombies=[];
 function spawnZ(c,r,hp,spd,col,name){
   zombies.push({x:c*TILE+TILE/2,y:r*TILE+TILE/2,hp,maxHp:hp,speed:spd,color:col,name,
-    frame:0,animTimer:0,bobTimer:Math.random()*6.28,bobY:0,hitCooldown:0});
+    frame:0,animTimer:0,bobTimer:Math.random()*6.28,bobY:0,hitCooldown:0,
+    facingDown:true,moving:false});
 }
 // Zombies extérieur
 spawnZ(3,2,1,35,'#5a8f3c','Zombie');spawnZ(24,2,1,35,'#5a8f3c','Zombie');
@@ -199,7 +209,7 @@ function walkable(px,py,rad){
   for(const[ox,oy]of[[-r,-r],[r,-r],[-r,r],[r,r]]){
     const c=Math.floor((px+ox)/TILE),row=Math.floor((py+oy)/TILE);
     if(row<0||row>=ROWS||c<0||c>=COLS)return false;
-    const t=MAP[row][c];if(t===WALL||t===WDEST||t===WATER)return false;
+    const t=MAP[row][c];if(t===WALL||t===WDEST||t===WATER)return false; // DOOR est traversable
   }return true;
 }
 
@@ -222,10 +232,14 @@ function update(dt){
   for(const z of zombies){
     if(z.hp<=0)continue;
     const ddx=player.x-z.x,ddy=player.y-z.y,dist=Math.hypot(ddx,ddy);
-    if(dist>15){const mx=ddx/dist*z.speed*s,my=ddy/dist*z.speed*s;
+    z.moving=dist>15;
+    if(z.moving){
+      if(ddy>0)z.facingDown=true;else if(ddy<0)z.facingDown=false;
+      const mx=ddx/dist*z.speed*s,my=ddy/dist*z.speed*s;
       const nx=z.x+mx,ny=z.y+my;
       if(walkable(nx,ny)){z.x=nx;z.y=ny;}else if(walkable(nx,z.y))z.x=nx;else if(walkable(z.x,ny))z.y=ny;}
     z.bobTimer+=s*5;z.bobY=Math.sin(z.bobTimer)*2;
+    z.animTimer=(z.animTimer||0)+dt;if(z.animTimer>180){z.animTimer=0;z.frame=(z.frame+1)%(z.moving?6:4);}
     if(dist<18&&!z.hitCooldown){player.hp=Math.max(0,player.hp-1);z.hitCooldown=60;
       dmgNumbers.push({x:player.x,y:player.y-20,text:'-1',timer:0,color:'#ff4444'});}
     if(z.hitCooldown)z.hitCooldown--;
@@ -411,6 +425,48 @@ function draw(){
         ctx.beginPath();ctx.ellipse(sx+rx,sy+ry,3,1.5,gameTime*0.3,0,6.28);ctx.fill();}
       // Bord sombre
       ctx.strokeStyle='rgba(15,50,90,0.4)';ctx.lineWidth=1;ctx.strokeRect(sx,sy,TILE,TILE);
+    }else if(t===DOOR){
+      // Porte — 3 variantes visuelles
+      const doorVar=hash(r,c,900)%3;
+      // Sol sous la porte
+      ctx.fillStyle='#3a3028';ctx.fillRect(sx,sy,TILE,TILE);
+      if(doorVar===0){
+        // Arche en pierre avec sol dalles
+        ctx.fillStyle='#5a5048';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+        ctx.strokeStyle='#6a6058';ctx.lineWidth=1;
+        ctx.strokeRect(sx+4,sy+4,TILE/2-4,TILE/2-4);ctx.strokeRect(sx+TILE/2,sy+TILE/2,TILE/2-4,TILE/2-4);
+        // Piliers latéraux
+        ctx.fillStyle='#7a6a5a';ctx.fillRect(sx,sy,4,TILE);ctx.fillRect(sx+TILE-4,sy,4,TILE);
+        ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(sx+1,sy,2,TILE);ctx.fillRect(sx+TILE-3,sy,2,TILE);
+        ctx.strokeStyle='#2a2018';ctx.lineWidth=1.5;
+        ctx.strokeRect(sx,sy,4,TILE);ctx.strokeRect(sx+TILE-4,sy,4,TILE);
+      }else if(doorVar===1){
+        // Porte en bois (plancher visible)
+        ctx.fillStyle='#6a5038';ctx.fillRect(sx,sy,TILE,TILE);
+        for(let py=0;py<TILE;py+=8){ctx.strokeStyle='#5a4028';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(sx,sy+py);ctx.lineTo(sx+TILE,sy+py);ctx.stroke();}
+        // Seuil
+        ctx.fillStyle='#8a7058';ctx.fillRect(sx,sy,TILE,3);ctx.fillRect(sx,sy+TILE-3,TILE,3);
+        ctx.strokeStyle='#4a3020';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(sx,sy+1);ctx.lineTo(sx+TILE,sy+1);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(sx,sy+TILE-2);ctx.lineTo(sx+TILE,sy+TILE-2);ctx.stroke();
+      }else{
+        // Grille en fer
+        ctx.fillStyle='#2a2820';ctx.fillRect(sx,sy,TILE,TILE);
+        // Barreaux
+        ctx.strokeStyle='#6a6870';ctx.lineWidth=2;
+        for(let bx=6;bx<TILE;bx+=7){ctx.beginPath();ctx.moveTo(sx+bx,sy+2);ctx.lineTo(sx+bx,sy+TILE-2);ctx.stroke();}
+        // Barres horizontales
+        ctx.strokeStyle='#5a5860';ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(sx+2,sy+TILE/3);ctx.lineTo(sx+TILE-2,sy+TILE/3);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(sx+2,sy+TILE*2/3);ctx.lineTo(sx+TILE-2,sy+TILE*2/3);ctx.stroke();
+        // Rivets
+        ctx.fillStyle='#8a8890';
+        for(let bx=6;bx<TILE;bx+=14){
+          ctx.beginPath();ctx.arc(sx+bx,sy+TILE/3,2,0,6.28);ctx.fill();
+          ctx.beginPath();ctx.arc(sx+bx,sy+TILE*2/3,2,0,6.28);ctx.fill();}
+      }
+      ctx.strokeStyle='#1a1810';ctx.lineWidth=1;ctx.strokeRect(sx,sy,TILE,TILE);
     }else{
       // Sol sous murs (herbe)
       const gB=Math.floor(130+h*20),gR=Math.floor(50+h*12);
@@ -492,91 +548,197 @@ function draw(){
       const sx=e.c*TILE-camX,sy=e.r*TILE-camY;
       const wh=hashF(e.r,e.c,200),wh2=hashF(e.r,e.c,201);
       if(e.t===WALL){
-        // Face dessus avec texture pierre
-        const tR=Math.floor(128+wh*20),tG=Math.floor(108+wh*18),tB=Math.floor(95+wh*15);
+        // === 5 variantes de murs basées sur le hash de position ===
+        const wallVariant = hash(e.r, e.c, 500) % 5;
+
+        // -- Face dessus (commune, avec variante de couleur) --
+        const topColors = [
+          [128,108,95],[105,110,118],[118,95,80],[95,105,95],[120,100,105]
+        ];
+        const tc = topColors[wallVariant];
+        const tR=Math.floor(tc[0]+wh*20),tG=Math.floor(tc[1]+wh*18),tB=Math.floor(tc[2]+wh*15);
         ctx.fillStyle=`rgb(${tR},${tG},${tB})`;ctx.fillRect(sx,sy,TILE,TILE);
-        // Texture subtile sur le dessus
+        // Texture sur dessus
         for(let i=0;i<6;i++){
           const dx=hash(e.r,e.c,i+300)%30+3,dy=hash(e.r,e.c,i+310)%30+3;
           const sh=hashF(e.r,e.c,i+320);
           ctx.fillStyle=sh>0.5?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.04)';
           ctx.fillRect(sx+dx,sy+dy,3+hash(e.r,e.c,i+330)%4,2+hash(e.r,e.c,i+331)%3);
         }
-        // Highlight haut
         ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(sx+2,sy+1,TILE-4,2);
-        // Ombre intérieure bas
         ctx.fillStyle='rgba(0,0,0,0.06)';ctx.fillRect(sx+2,sy+TILE-3,TILE-4,2);
 
-        // Face avant — briques détaillées
-        ctx.fillStyle=`rgb(${Math.floor(90+wh*15)},${Math.floor(60+wh*10)},${Math.floor(48+wh*8)})`;
-        ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
-        const brickH=6,brickW=12;
-        for(let by=0;by<WALL_EXT;by+=brickH){
-          const rowIdx=Math.floor(by/brickH);
-          const off=(rowIdx%2)*Math.floor(brickW*0.6);
-          for(let bx=-brickW+off;bx<TILE;bx+=brickW+2){
-            const x1=Math.max(0,bx),x2=Math.min(TILE,bx+brickW);
-            if(x2<=x1)continue;
-            const y1=sy+TILE+by,y2=Math.min(sy+TILE+WALL_EXT,y1+brickH-1);
-            // Couleur de brique variée
-            const bh=hashF(e.r*10+rowIdx,e.c*10+Math.floor(bx/brickW),250);
-            const br=Math.floor(125+bh*35),bg=Math.floor(62+bh*22),bb=Math.floor(38+bh*18);
-            ctx.fillStyle=`rgb(${br},${bg},${bb})`;
-            ctx.fillRect(sx+x1,y1+1,x2-x1,y2-y1-1);
-            // Highlight brique (haut)
-            ctx.fillStyle=`rgba(255,255,255,${0.08+bh*0.08})`;
-            ctx.fillRect(sx+x1+1,y1+1,x2-x1-2,1);
-            // Ombre brique (bas)
-            ctx.fillStyle='rgba(0,0,0,0.1)';
-            ctx.fillRect(sx+x1+1,y2-1,x2-x1-2,1);
-            // Texture sur la brique
-            if(bh>0.7){ctx.fillStyle='rgba(0,0,0,0.05)';
-              ctx.fillRect(sx+x1+2+hash(e.r,e.c,bx+400)%6,y1+2,3,2);}
-          }
-          // Ligne de mortier horizontale
-          ctx.fillStyle='rgba(70,55,45,0.8)';
-          ctx.fillRect(sx,sy+TILE+by,TILE,1);
-        }
-        // Ligne de mortier verticales (entre briques)
-        for(let by=0;by<WALL_EXT;by+=brickH){
-          const rowIdx=Math.floor(by/brickH);
-          const off=(rowIdx%2)*Math.floor(brickW*0.6);
-          for(let bx=off;bx<TILE;bx+=brickW+2){
-            if(bx>0&&bx<TILE){
-              ctx.fillStyle='rgba(70,55,45,0.6)';
-              const my1=sy+TILE+by,my2=Math.min(sy+TILE+WALL_EXT,my1+brickH);
-              ctx.fillRect(sx+bx,my1,1,my2-my1);
+        // -- Face avant selon variante --
+        if(wallVariant===0||wallVariant===3){
+          // BRIQUES CLASSIQUES (rouge-brun ou gris)
+          const isGray = wallVariant===3;
+          const baseR=isGray?80:90, baseG=isGray?82:60, baseB=isGray?88:48;
+          ctx.fillStyle=`rgb(${Math.floor(baseR+wh*15)},${Math.floor(baseG+wh*10)},${Math.floor(baseB+wh*8)})`;
+          ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
+          const bH=6,bW=12;
+          for(let by=0;by<WALL_EXT;by+=bH){
+            const ri=Math.floor(by/bH),off=(ri%2)*7;
+            for(let bx=-bW+off;bx<TILE;bx+=bW+2){
+              const x1=Math.max(0,bx),x2=Math.min(TILE,bx+bW);if(x2<=x1)continue;
+              const y1=sy+TILE+by,y2=Math.min(sy+TILE+WALL_EXT,y1+bH-1);
+              const bh=hashF(e.r*10+ri,e.c*10+Math.floor(bx/bW),250);
+              const br=isGray?Math.floor(95+bh*30):Math.floor(125+bh*35);
+              const bg=isGray?Math.floor(95+bh*28):Math.floor(62+bh*22);
+              const bb=isGray?Math.floor(100+bh*25):Math.floor(38+bh*18);
+              ctx.fillStyle=`rgb(${br},${bg},${bb})`;ctx.fillRect(sx+x1,y1+1,x2-x1,y2-y1-1);
+              ctx.fillStyle=`rgba(255,255,255,${0.06+bh*0.06})`;ctx.fillRect(sx+x1+1,y1+1,x2-x1-2,1);
+              ctx.fillStyle='rgba(0,0,0,0.08)';ctx.fillRect(sx+x1+1,y2-1,x2-x1-2,1);
             }
+            ctx.fillStyle=`rgba(${isGray?'60,60,65':'70,55,45'},0.7)`;ctx.fillRect(sx,sy+TILE+by,TILE,1);
+          }
+        } else if(wallVariant===1){
+          // PIERRES TAILLÉES (grosses pierres irrégulières)
+          ctx.fillStyle=`rgb(${Math.floor(78+wh*15)},${Math.floor(80+wh*12)},${Math.floor(88+wh*10)})`;
+          ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
+          const stones=[[0,0,TILE*0.6,WALL_EXT*0.55],[TILE*0.62,0,TILE*0.38,WALL_EXT*0.5],
+            [0,WALL_EXT*0.52,TILE*0.4,WALL_EXT*0.48],[TILE*0.42,WALL_EXT*0.48,TILE*0.58,WALL_EXT*0.52]];
+          for(let si=0;si<stones.length;si++){
+            const[stx,sty,stw,sth]=stones[si];const sh=hashF(e.r*4+si,e.c*4+si,260);
+            ctx.fillStyle=`rgb(${Math.floor(85+sh*25)},${Math.floor(88+sh*22)},${Math.floor(95+sh*20)})`;
+            ctx.fillRect(sx+stx+1,sy+TILE+sty+1,stw-2,sth-2);
+            ctx.fillStyle=`rgba(255,255,255,${0.04+sh*0.04})`;ctx.fillRect(sx+stx+2,sy+TILE+sty+1,stw-4,1);
+            ctx.fillStyle='rgba(0,0,0,0.06)';ctx.fillRect(sx+stx+2,sy+TILE+sty+sth-2,stw-4,1);
+          }
+          ctx.strokeStyle='rgba(50,52,58,0.5)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(sx,sy+TILE+WALL_EXT*0.5);ctx.lineTo(sx+TILE,sy+TILE+WALL_EXT*0.52);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(sx+TILE*0.5,sy+TILE);ctx.lineTo(sx+TILE*0.48,sy+TILE+WALL_EXT);ctx.stroke();
+        } else if(wallVariant===2){
+          // BOIS (planches verticales)
+          const wb=Math.floor(85+wh*20);
+          ctx.fillStyle=`rgb(${wb},${Math.floor(wb*0.7)},${Math.floor(wb*0.45)})`;
+          ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
+          const plankW=7;
+          for(let px=0;px<TILE;px+=plankW){
+            const ph=hashF(e.r,e.c,px+600);
+            const pr=Math.floor(78+ph*30),pg=Math.floor(55+ph*22),pb=Math.floor(32+ph*18);
+            ctx.fillStyle=`rgb(${pr},${pg},${pb})`;ctx.fillRect(sx+px+1,sy+TILE,plankW-1,WALL_EXT);
+            ctx.fillStyle=`rgba(255,255,255,${0.04+ph*0.06})`;ctx.fillRect(sx+px+2,sy+TILE+1,plankW-3,1);
+            // Grain
+            for(let gy=2;gy<WALL_EXT-2;gy+=3){
+              ctx.fillStyle='rgba(0,0,0,0.06)';ctx.fillRect(sx+px+2,sy+TILE+gy,plankW-3,1);}
+            // Clou occasionnel
+            if(ph>0.7){ctx.fillStyle='#555';
+              ctx.beginPath();ctx.arc(sx+px+plankW/2,sy+TILE+WALL_EXT/2,1.5,0,6.28);ctx.fill();}
+          }
+          // Joints verticaux
+          ctx.fillStyle='rgba(40,28,18,0.5)';
+          for(let px=plankW;px<TILE;px+=plankW) ctx.fillRect(sx+px,sy+TILE,1,WALL_EXT);
+        } else {
+          // BRIQUES AVEC MOUSSE/LIERRE
+          ctx.fillStyle=`rgb(${Math.floor(88+wh*15)},${Math.floor(58+wh*10)},${Math.floor(45+wh*8)})`;
+          ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
+          const bH=6,bW=12;
+          for(let by=0;by<WALL_EXT;by+=bH){
+            const ri=Math.floor(by/bH),off=(ri%2)*7;
+            for(let bx=-bW+off;bx<TILE;bx+=bW+2){
+              const x1=Math.max(0,bx),x2=Math.min(TILE,bx+bW);if(x2<=x1)continue;
+              const bh=hashF(e.r*10+ri,e.c*10+Math.floor(bx/bW),250);
+              ctx.fillStyle=`rgb(${Math.floor(115+bh*30)},${Math.floor(58+bh*20)},${Math.floor(35+bh*15)})`;
+              ctx.fillRect(sx+x1,sy+TILE+by+1,x2-x1,bH-2);
+            }
+            ctx.fillStyle='rgba(60,50,42,0.6)';ctx.fillRect(sx,sy+TILE+by,TILE,1);
+          }
+          // Mousse/lierre par-dessus
+          for(let mi=0;mi<5;mi++){
+            const mx=hash(e.r,e.c,mi+700)%TILE,my=hash(e.r,e.c,mi+710)%WALL_EXT;
+            const msz=3+hash(e.r,e.c,mi+720)%4;
+            const ma=0.3+hashF(e.r,e.c,mi+730)*0.3;
+            ctx.fillStyle=`rgba(50,${120+hash(e.r,e.c,mi+740)%40},35,${ma})`;
+            ctx.beginPath();ctx.arc(sx+mx,sy+TILE+my,msz,0,6.28);ctx.fill();
+          }
+          // Petites feuilles
+          ctx.fillStyle='rgba(60,140,45,0.35)';
+          for(let li=0;li<3;li++){
+            const lx=hash(e.r,e.c,li+750)%TILE,ly=hash(e.r,e.c,li+760)%(WALL_EXT+4);
+            ctx.fillRect(sx+lx,sy+TILE+ly-2,3,5);
+            ctx.fillRect(sx+lx-1,sy+TILE+ly,5,2);
           }
         }
-        // Ombre dégradée bas face avant
-        for(let i=0;i<5;i++){ctx.fillStyle=`rgba(0,0,0,${0.12-i*0.02})`;ctx.fillRect(sx,sy+TILE+WALL_EXT-1-i,TILE,1);}
-        // Outline épais
-        ctx.strokeStyle='#22180f';ctx.lineWidth=2.5;ctx.strokeRect(sx,sy,TILE,TILE+WALL_EXT);
-        // Ombre interne haut de la face avant
-        ctx.fillStyle='rgba(0,0,0,0.12)';ctx.fillRect(sx+1,sy+TILE,TILE-2,2);
-      }else{
-        // Mur destructible — caisses/blocs fissurés
-        const dr=Math.floor(165+wh*20),dg=Math.floor(145+wh*18),db=Math.floor(125+wh*15);
-        ctx.fillStyle=`rgb(${dr},${dg},${db})`;ctx.fillRect(sx,sy,TILE,TILE);
-        // Planches
-        ctx.strokeStyle=`rgb(${dr-30},${dg-25},${db-20})`;ctx.lineWidth=1;
-        for(let py=0;py<TILE;py+=10){ctx.beginPath();ctx.moveTo(sx,sy+py);ctx.lineTo(sx+TILE,sy+py);ctx.stroke();}
-        for(let px=0;px<TILE;px+=12){ctx.beginPath();ctx.moveTo(sx+px,sy);ctx.lineTo(sx+px,sy+TILE);ctx.stroke();}
-        // Highlight
-        ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(sx+2,sy+1,TILE-4,2);
-        // Face avant
-        ctx.fillStyle=`rgb(${dr-35},${dg-30},${db-25})`;ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
-        // Croix de fissure
-        ctx.strokeStyle=`rgb(${dr-60},${dg-50},${db-40})`;ctx.lineWidth=2;
-        ctx.beginPath();ctx.moveTo(sx+5,sy+5);ctx.lineTo(sx+TILE-5,sy+TILE-5);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(sx+TILE-5,sy+5);ctx.lineTo(sx+5,sy+TILE-5);ctx.stroke();
-        // Petites fissures supplémentaires
-        ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(sx+TILE/2,sy+3);ctx.lineTo(sx+TILE/2+4,sy+TILE/3);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(sx+TILE-3,sy+TILE/2);ctx.lineTo(sx+TILE*0.7,sy+TILE/2+5);ctx.stroke();
+
+        // Détails communs à tous les murs
+        // Mousse sur le dessus (aléatoire)
+        if(wh2>0.6){ctx.fillStyle='rgba(55,120,40,0.2)';
+          ctx.beginPath();ctx.ellipse(sx+hash(e.r,e.c,800)%28+6,sy+hash(e.r,e.c,801)%28+6,5,3,0,0,6.28);ctx.fill();}
+        // Fissure occasionnelle sur le dessus
+        if(wh>0.85){ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(sx+hash(e.r,e.c,810)%20+5,sy+5);
+          ctx.lineTo(sx+hash(e.r,e.c,811)%20+10,sy+TILE-5);ctx.stroke();}
+        // Ombre bas face avant
+        for(let i=0;i<4;i++){ctx.fillStyle=`rgba(0,0,0,${0.1-i*0.02})`;ctx.fillRect(sx,sy+TILE+WALL_EXT-1-i,TILE,1);}
         // Outline
-        ctx.strokeStyle='#22180f';ctx.lineWidth=2;ctx.strokeRect(sx,sy,TILE,TILE+WALL_EXT);
+        ctx.strokeStyle='#22180f';ctx.lineWidth=2.5;ctx.strokeRect(sx,sy,TILE,TILE+WALL_EXT);
+        ctx.fillStyle='rgba(0,0,0,0.1)';ctx.fillRect(sx+1,sy+TILE,TILE-2,2);
+      }else{
+        // === MURS DESTRUCTIBLES — 3 variantes ===
+        const destVariant = hash(e.r,e.c,550) % 3;
+        if(destVariant===0){
+          // Caisse en bois
+          const dr=Math.floor(165+wh*20),dg=Math.floor(140+wh*18),db=Math.floor(105+wh*15);
+          ctx.fillStyle=`rgb(${dr},${dg},${db})`;ctx.fillRect(sx,sy,TILE,TILE);
+          ctx.strokeStyle=`rgb(${dr-30},${dg-25},${db-20})`;ctx.lineWidth=1;
+          for(let py=0;py<TILE;py+=10){ctx.beginPath();ctx.moveTo(sx,sy+py);ctx.lineTo(sx+TILE,sy+py);ctx.stroke();}
+          for(let px=0;px<TILE;px+=12){ctx.beginPath();ctx.moveTo(sx+px,sy);ctx.lineTo(sx+px,sy+TILE);ctx.stroke();}
+          // Croix
+          ctx.strokeStyle=`rgb(${dr-45},${dg-40},${db-30})`;ctx.lineWidth=2;
+          ctx.beginPath();ctx.moveTo(sx+5,sy+5);ctx.lineTo(sx+TILE-5,sy+TILE-5);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(sx+TILE-5,sy+5);ctx.lineTo(sx+5,sy+TILE-5);ctx.stroke();
+          // Clous
+          ctx.fillStyle='#666';for(const[nx,ny]of[[6,6],[TILE-7,6],[6,TILE-7],[TILE-7,TILE-7]]){
+            ctx.beginPath();ctx.arc(sx+nx,sy+ny,2,0,6.28);ctx.fill();}
+          ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(sx+2,sy+1,TILE-4,2);
+          ctx.fillStyle=`rgb(${dr-35},${dg-30},${db-25})`;ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
+          // Planches face avant
+          ctx.strokeStyle=`rgb(${dr-50},${dg-45},${db-35})`;ctx.lineWidth=1;
+          for(let px=0;px<TILE;px+=12){ctx.beginPath();ctx.moveTo(sx+px,sy+TILE);ctx.lineTo(sx+px,sy+TILE+WALL_EXT);ctx.stroke();}
+        } else if(destVariant===1){
+          // Tonneau/barricade
+          const br=Math.floor(140+wh*20),bg=Math.floor(100+wh*15),bb=Math.floor(65+wh*12);
+          ctx.fillStyle=`rgb(${br},${bg},${bb})`;
+          ctx.beginPath();ctx.ellipse(sx+TILE/2,sy+TILE/2,TILE/2-1,TILE/2-1,0,0,6.28);ctx.fill();
+          // Cerclages
+          ctx.strokeStyle=`rgb(${Math.floor(br*0.5)},${Math.floor(bg*0.5)},${Math.floor(bb*0.5)})`;ctx.lineWidth=2;
+          ctx.beginPath();ctx.ellipse(sx+TILE/2,sy+TILE/2,TILE/2-4,TILE/2-4,0,0,6.28);ctx.stroke();
+          ctx.beginPath();ctx.ellipse(sx+TILE/2,sy+TILE/2,TILE/4,TILE/4,0,0,6.28);ctx.stroke();
+          // Planches
+          ctx.strokeStyle=`rgb(${br-30},${bg-25},${bb-20})`;ctx.lineWidth=1;
+          for(let a=0;a<6.28;a+=1.05){
+            ctx.beginPath();ctx.moveTo(sx+TILE/2+Math.cos(a)*5,sy+TILE/2+Math.sin(a)*5);
+            ctx.lineTo(sx+TILE/2+Math.cos(a)*(TILE/2-3),sy+TILE/2+Math.sin(a)*(TILE/2-3));ctx.stroke();}
+          // Face avant
+          ctx.fillStyle=`rgb(${br-25},${bg-20},${bb-15})`;
+          ctx.fillRect(sx+2,sy+TILE,TILE-4,WALL_EXT);
+          ctx.fillStyle=`rgb(${Math.floor(br*0.45)},${Math.floor(bg*0.45)},${Math.floor(bb*0.45)})`;
+          ctx.fillRect(sx+2,sy+TILE+3,TILE-4,2);ctx.fillRect(sx+2,sy+TILE+WALL_EXT-5,TILE-4,2);
+        } else {
+          // Pierres empilées branlantes
+          ctx.fillStyle=`rgb(${Math.floor(130+wh*20)},${Math.floor(125+wh*18)},${Math.floor(118+wh*15)})`;
+          ctx.fillRect(sx,sy,TILE,TILE);
+          // Pierres irrégulières
+          const stns=[[2,2,TILE/2-3,TILE/2-3],[TILE/2+1,3,TILE/2-4,TILE/2-4],
+            [4,TILE/2+1,TILE/2-5,TILE/2-4],[TILE/2-1,TILE/2+2,TILE/2-1,TILE/2-5]];
+          for(let si=0;si<stns.length;si++){
+            const[stx,sty,stw,sth]=stns[si];const sh=hashF(e.r+si,e.c+si,270);
+            ctx.fillStyle=`rgb(${Math.floor(120+sh*30)},${Math.floor(115+sh*28)},${Math.floor(108+sh*25)})`;
+            ctx.fillRect(sx+stx,sy+sty,stw,sth);
+            ctx.strokeStyle='rgba(80,75,65,0.5)';ctx.lineWidth=1;ctx.strokeRect(sx+stx,sy+sty,stw,sth);
+          }
+          // Fissures
+          ctx.strokeStyle='rgba(60,55,48,0.4)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(sx+TILE/2-2,sy+3);ctx.lineTo(sx+TILE/2+3,sy+TILE-3);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(sx+5,sy+TILE/2);ctx.lineTo(sx+TILE-5,sy+TILE/2+3);ctx.stroke();
+          // Face avant
+          ctx.fillStyle=`rgb(${Math.floor(105+wh*18)},${Math.floor(100+wh*15)},${Math.floor(92+wh*12)})`;
+          ctx.fillRect(sx,sy+TILE,TILE,WALL_EXT);
+          ctx.strokeStyle='rgba(70,65,58,0.4)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(sx,sy+TILE+WALL_EXT/2);ctx.lineTo(sx+TILE,sy+TILE+WALL_EXT/2+1);ctx.stroke();
+        }
+        // Outline destructibles
+        ctx.strokeStyle='#2a2018';ctx.lineWidth=2;ctx.strokeRect(sx,sy,TILE,TILE+WALL_EXT);
       }
     }else if(e.type==='bush'){
       const cx=e.c*TILE+TILE/2-camX,cy=e.r*TILE+TILE/2-camY;
@@ -641,21 +803,24 @@ function drawChar(sx,sy,haloCol,ent,isP){
 }
 
 function drawZombie(sx,sy,z){
-  ctx.fillStyle='rgba(0,0,0,0.3)';ctx.beginPath();ctx.ellipse(sx,sy+12,12,5,0,0,6.28);ctx.fill();
-  ctx.fillStyle='rgba(220,50,50,0.25)';ctx.beginPath();ctx.ellipse(sx,sy+10,14,6,0,0,6.28);ctx.fill();
-  ctx.strokeStyle='#cc3333';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(sx,sy+10,14,6,0,0,6.28);ctx.stroke();
-  const b=z.bobY;
-  ctx.fillStyle='#3a5a28';ctx.fillRect(sx-8,sy+2+b,6,10);ctx.fillRect(sx+2,sy+2+b,6,10);
-  ctx.fillStyle=z.color;ctx.fillRect(sx-10,sy-12+b,20,16);
-  ctx.strokeStyle='#1a2a10';ctx.lineWidth=2;ctx.strokeRect(sx-10,sy-12+b,20,16);
-  ctx.fillStyle='#6aa848';ctx.beginPath();ctx.arc(sx,sy-18+b,12,0,6.28);ctx.fill();
-  ctx.strokeStyle='#1a2a10';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx,sy-18+b,12,0,6.28);ctx.stroke();
-  ctx.fillStyle='#cc2222';ctx.beginPath();ctx.arc(sx-4,sy-20+b,2.5,0,6.28);ctx.fill();
-  ctx.beginPath();ctx.arc(sx+4,sy-20+b,2.5,0,6.28);ctx.fill();
-  ctx.strokeStyle='#2a1a10';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx,sy-14+b,5,0.2,Math.PI-0.2);ctx.stroke();
-  const bw=24,bh2=3,bx=sx-bw/2,by=sy-35;
+  // Ombre
+  ctx.fillStyle='rgba(0,0,0,0.3)';ctx.beginPath();ctx.ellipse(sx,sy+14,14,6,0,0,6.28);ctx.fill();
+  // Halo rouge
+  ctx.fillStyle='rgba(220,50,50,0.25)';ctx.beginPath();ctx.ellipse(sx,sy+12,16,7,0,0,6.28);ctx.fill();
+  ctx.strokeStyle='#cc3333';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(sx,sy+12,16,7,0,0,6.28);ctx.stroke();
+  // Sprite zombie
+  const sheet=z.facingDown
+    ? (z.moving?zWalkFront:zIdleFront)
+    : (z.moving?zWalkBack:zIdleBack);
+  const sz=52;
+  if(sheet.complete){
+    ctx.drawImage(sheet,(z.frame||0)*128,0,128,128,sx-sz/2,sy-sz/2-10+z.bobY,sz,sz);
+  }
+  // Barre de vie
+  const bw=28,bh2=3,bx=sx-bw/2,by=sy-32;
   ctx.fillStyle='#333';ctx.fillRect(bx-1,by-1,bw+2,bh2+2);
   ctx.fillStyle='#dd4444';ctx.fillRect(bx,by,bw*(z.hp/z.maxHp),bh2);
+  // Nom
   ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.strokeStyle='#000';ctx.lineWidth=2;
   ctx.strokeText(z.name,sx,by-2);ctx.fillStyle='#fff';ctx.fillText(z.name,sx,by-2);ctx.textAlign='start';
 }
