@@ -42,38 +42,41 @@ def hashF(x, y, s=0):
 # ==================== GROUND TILES ====================
 
 def gen_ground_grass():
-    img = Image.new('RGBA', (T, T), (72, 148, 55))
+    # Night grass — very dark green
+    img = Image.new('RGBA', (T, T), (18, 42, 15))
     d = ImageDraw.Draw(img)
-    # Base avec variation
+    # Base avec variation sombre
     for y in range(0, T, 4):
         for x in range(0, T, 4):
             h = hashF(x, y, 1)
-            r, g, b = int(55 + h * 30), int(130 + h * 35), int(38 + h * 25)
+            r, g, b = int(12 + h * 18), int(32 + h * 22), int(10 + h * 15)
             d.rectangle([x, y, x + 3, y + 3], fill=(r, g, b))
-    # Taches plus claires
-    for i in range(12):
+    # Taches legeres (moonlight)
+    for i in range(8):
         cx = hash_xy(i, 0, 10) % (T - 20) + 10
         cy = hash_xy(i, 1, 10) % (T - 20) + 10
-        r = 8 + hash_xy(i, 2, 10) % 12
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=nc((65, 155, 48), 10))
+        r = 6 + hash_xy(i, 2, 10) % 10
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=nc((22, 50, 20), 6))
     # Brins d'herbe
     for i in range(40):
         x = hash_xy(i, 0, 20) % T
         y = hash_xy(i, 1, 20) % T
         h = 4 + hash_xy(i, 2, 20) % 8
-        d.line([(x, y), (x + hash_xy(i, 3, 20) % 3 - 1, y - h)], fill=nc((50, 120, 35), 8), width=1)
-    # Petits cailloux
+        d.line([(x, y), (x + hash_xy(i, 3, 20) % 3 - 1, y - h)], fill=nc((15, 45, 12), 5), width=1)
+    # Petits cailloux (dark)
     for i in range(6):
         cx = hash_xy(i, 0, 30) % (T - 10) + 5
         cy = hash_xy(i, 1, 30) % (T - 10) + 5
-        d.ellipse([cx - 2, cy - 1, cx + 2, cy + 1], fill=nc((120, 115, 100), 10))
-    # Fleur occasionnelle
-    for i in range(3):
-        if hashF(i, 0, 40) > 0.5:
+        d.ellipse([cx - 2, cy - 1, cx + 2, cy + 1], fill=nc((50, 48, 42), 8))
+    # Pas de fleurs la nuit — champignons luminescents
+    for i in range(2):
+        if hashF(i, 0, 40) > 0.6:
             fx = hash_xy(i, 0, 41) % (T - 20) + 10
             fy = hash_xy(i, 1, 41) % (T - 20) + 10
-            colors = [(230, 210, 60), (210, 80, 120), (200, 100, 200), (100, 180, 220)]
-            col = colors[hash_xy(i, 2, 41) % 4]
+            # Lueur verte
+            d.ellipse([fx - 4, fy - 4, fx + 4, fy + 4], fill=(20, 60, 15, 40))
+            colors = [(40, 180, 60), (50, 150, 80), (30, 120, 100)]
+            col = colors[hash_xy(i, 2, 41) % 3]
             d.ellipse([fx - 3, fy - 3, fx + 3, fy + 3], fill=col)
             d.ellipse([fx - 1, fy - 1, fx + 1, fy + 1], fill=(240, 240, 120))
     return img
@@ -419,6 +422,207 @@ def gen_wall_front_gray_brick():
     draw_bricks(d, T, T, 95, 95, 105, (60, 62, 68))
     for i in range(8):
         d.line([(0, T - 1 - i), (T, T - 1 - i)], fill=(0, 0, 0, 20 - i * 2))
+    return img
+
+
+# ---- 5 variantes de pierre grise coherentes pour l'exterieur du manoir ----
+# Palette commune : gris 70-110, joints 50-60, highlights 115-125
+
+def gen_wall_exterior_stone_1():
+    """Pierre taillee reguliere — blocs rectangulaires bien alignes."""
+    img = Image.new('RGBA', (T, T), (82, 80, 78))
+    d = ImageDraw.Draw(img)
+    bh, bw = T // 4, T // 2
+    for row in range(4):
+        off = (row % 2) * (bw // 2)
+        for col in range(-1, 3):
+            x1 = col * bw + off
+            y1 = row * bh
+            x2, y2 = min(T, x1 + bw - 2), min(T, y1 + bh - 2)
+            if x2 <= max(0, x1): continue
+            x1 = max(0, x1)
+            h = hashF(row, col, 600)
+            r = int(78 + h * 18)
+            d.rectangle([x1+1, y1+1, x2, y2], fill=(r, r-2, r-5))
+            d.line([(x1+2, y1+2), (x2-1, y1+2)], fill=(r+12, r+10, r+8), width=1)
+            d.line([(x1+2, y2-1), (x2-1, y2-1)], fill=(r-10, r-12, r-13), width=1)
+    # Joints
+    for row in range(1, 4):
+        d.line([(0, row*bh), (T, row*bh)], fill=(52, 50, 48), width=2)
+    for row in range(4):
+        off = (row % 2) * (bw // 2)
+        for col in range(3):
+            x = col * bw + off
+            if 0 < x < T:
+                d.line([(x, row*bh), (x, (row+1)*bh)], fill=(52, 50, 48), width=2)
+    for i in range(6):
+        d.line([(0, T-1-i), (T, T-1-i)], fill=(0,0,0, 18-i*3))
+    return img
+
+
+def gen_wall_exterior_stone_2():
+    """Pierre irreguliere — blocs de tailles variees."""
+    img = Image.new('RGBA', (T, T), (78, 76, 74))
+    d = ImageDraw.Draw(img)
+    stones = [
+        (0, 0, 0.55, 0.42), (0.57, 0, 0.43, 0.38),
+        (0, 0.44, 0.38, 0.56), (0.40, 0.40, 0.32, 0.30),
+        (0.74, 0.40, 0.26, 0.32), (0.40, 0.72, 0.60, 0.28),
+        (0, 0.44, 0.38, 0.28), (0.40, 0.72, 0.28, 0.28),
+        (0.70, 0.74, 0.30, 0.26),
+    ]
+    for si, (sx, sy, sw, sh) in enumerate(stones):
+        x1, y1 = int(sx*T), int(sy*T)
+        x2, y2 = min(T-1, int((sx+sw)*T)), min(T-1, int((sy+sh)*T))
+        if x2 <= x1 or y2 <= y1: continue
+        h = hashF(si, 0, 610)
+        r = int(75 + h * 22)
+        d.rectangle([x1+1, y1+1, x2-1, y2-1], fill=(r, r-1, r-4))
+        d.line([(x1+2, y1+2), (x2-2, y1+2)], fill=(r+10, r+9, r+7), width=1)
+        d.rectangle([x1, y1, x2, y2], outline=(50, 48, 45), width=2)
+    for i in range(6):
+        d.line([(0, T-1-i), (T, T-1-i)], fill=(0,0,0, 18-i*3))
+    return img
+
+
+def gen_wall_exterior_stone_3():
+    """Pierre avec erosion — surface usee par le temps."""
+    img = gen_wall_exterior_stone_1().convert('RGBA')
+    overlay = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    # Erosion : taches sombres subtiles
+    for i in range(8):
+        cx = hash_xy(i, 0, 620) % (T-16) + 8
+        cy = hash_xy(i, 1, 620) % (T-16) + 8
+        r = 4 + hash_xy(i, 2, 620) % 8
+        v = hash_xy(i, 3, 620) % 12
+        od.ellipse([cx-r, cy-r, cx+r, cy+r], fill=(58+v, 56+v, 52+v, 60))
+    img = Image.alpha_composite(img, overlay)
+    d = ImageDraw.Draw(img)
+    # Petites fissures
+    d.line([(T//3, 8), (T//3+5, T//2)], fill=(58, 56, 52), width=1)
+    d.line([(T*2//3, T//4), (T*2//3-3, T*3//4)], fill=(56, 54, 50), width=1)
+    return img
+
+
+def gen_wall_exterior_stone_4():
+    """Pierre avec lichen — taches subtiles gris-vert sur surface grise."""
+    img = gen_wall_exterior_stone_2().convert('RGBA')
+    overlay = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    for i in range(6):
+        cx = hash_xy(i, 0, 630) % (T-20) + 10
+        cy = hash_xy(i, 1, 630) % (T-20) + 10
+        r = 4 + hash_xy(i, 2, 630) % 6
+        h = hashF(i, 3, 630)
+        # Lichen subtil gris-vert, pas blanc
+        col = (int(82+h*15), int(85+h*15), int(72+h*10), int(40+h*30))
+        od.ellipse([cx-r, cy-r//2, cx+r, cy+r//2], fill=col)
+    return Image.alpha_composite(img, overlay)
+
+
+def gen_wall_exterior_stone_5():
+    """Pierre mouillee — plus sombre en bas, traces d'eau."""
+    img = gen_wall_exterior_stone_1().convert('RGBA')
+    # Darken bottom half by blending with a dark overlay
+    from PIL import ImageEnhance
+    overlay = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    for y in range(T//2, T):
+        alpha = int((y - T//2) / (T//2) * 50)
+        od.line([(0, y), (T, y)], fill=(0, 0, 8, alpha))
+    img = Image.alpha_composite(img, overlay)
+    d = ImageDraw.Draw(img)
+    # Traces de ruissellement vertical (dark streaks)
+    for i in range(3):
+        x = hash_xy(i, 0, 640) % (T-10) + 5
+        for y in range(T//3, T-5, 3):
+            x += hash_xy(i, y, 641) % 3 - 1
+            x = max(2, min(T-3, x))
+            streak = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+            sd = ImageDraw.Draw(streak)
+            sd.rectangle([x, y, x+1, y+2], fill=(0, 0, 5, 35))
+            img = Image.alpha_composite(img, streak)
+    return img
+
+
+def gen_wall_front_dark_stone():
+    """Pierre sombre presque noire — mur de donjon."""
+    img = Image.new('RGBA', (T, T), (42, 42, 48))
+    d = ImageDraw.Draw(img)
+    stones = [
+        (0, 0, T * 0.52, T * 0.45), (T * 0.54, 0, T * 0.46, T * 0.50),
+        (0, T * 0.48, T * 0.48, T * 0.52), (T * 0.50, T * 0.52, T * 0.50, T * 0.48),
+    ]
+    for si, (sx, sy, sw, sh) in enumerate(stones):
+        sx, sy, sw, sh = int(sx), int(sy), int(sw), int(sh)
+        h = hashF(si, 0, 280)
+        r = int(35 + h * 18)
+        col = (r, r + 1, r + 5)
+        d.rectangle([sx + 2, sy + 2, sx + sw - 3, sy + sh - 3], fill=col)
+        d.line([(sx + 3, sy + 3), (sx + sw - 4, sy + 3)], fill=(col[0] + 10, col[1] + 10, col[2] + 8), width=2)
+        d.line([(sx + sw - 3, sy + 4), (sx + sw - 3, sy + sh - 3)], fill=(col[0] - 8, col[1] - 8, col[2] - 6), width=2)
+    for sx, sy, sw, sh in stones:
+        d.rectangle([int(sx), int(sy), int(sx + sw), int(sy + sh)], outline=(28, 28, 35), width=2)
+    for i in range(8):
+        d.line([(0, T - 1 - i), (T, T - 1 - i)], fill=(0, 0, 0, 20 - i * 2))
+    return img
+
+
+def gen_wall_front_cracked_brick():
+    """Briques fissurees avec lezardes."""
+    img = Image.new('RGBA', (T, T), (90, 60, 48))
+    d = ImageDraw.Draw(img)
+    draw_bricks(d, T, T, 120, 62, 40, (65, 52, 45))
+    # Grosses fissures
+    d.line([(T//4, 5), (T//3, T//2), (T//4+10, T-8)], fill=(35, 30, 25), width=3)
+    d.line([(T//3, T//2), (T*2//3, T//2+15)], fill=(35, 30, 25), width=2)
+    d.line([(T*3//4, 8), (T*2//3, T//3), (T*3//4-5, T*2//3)], fill=(38, 32, 28), width=2)
+    # Morceaux manquants
+    d.rectangle([T//3-5, T//2-3, T//3+8, T//2+5], fill=(45, 35, 30))
+    for i in range(8):
+        d.line([(0, T - 1 - i), (T, T - 1 - i)], fill=(0, 0, 0, 20 - i * 2))
+    return img
+
+
+def gen_wall_front_cobblestone():
+    """Moellons irreguliers — pierres rondes de tailles variees."""
+    img = Image.new('RGBA', (T, T), (75, 72, 68))
+    d = ImageDraw.Draw(img)
+    random.seed(777)
+    for i in range(12):
+        cx = hash_xy(i, 0, 350) % (T - 20) + 10
+        cy = hash_xy(i, 1, 350) % (T - 16) + 8
+        rx = 8 + hash_xy(i, 2, 350) % 12
+        ry = 6 + hash_xy(i, 3, 350) % 10
+        h = hashF(i, 4, 350)
+        col = (int(68 + h * 30), int(65 + h * 28), int(60 + h * 25))
+        d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=col)
+        d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], outline=(50, 48, 42), width=2)
+        d.ellipse([cx - rx + 3, cy - ry + 2, cx - rx + 8, cy - ry + 5], fill=(col[0] + 12, col[1] + 12, col[2] + 10))
+    random.seed(42)
+    for i in range(8):
+        d.line([(0, T - 1 - i), (T, T - 1 - i)], fill=(0, 0, 0, 18 - i * 2))
+    return img
+
+
+def gen_wall_front_vine_stone():
+    """Pierre avec lierre grimpant — mur exterieur envahi."""
+    img = gen_wall_front_gray_stone()
+    d = ImageDraw.Draw(img)
+    # Tiges de lierre verticales
+    for vine in range(3):
+        vx = 15 + hash_xy(vine, 0, 360) % (T - 30)
+        d.line([(vx, 0), (vx + hash_xy(vine, 1, 360) % 8 - 4, T)], fill=(30, 65, 25), width=3)
+        d.line([(vx + 1, 0), (vx + hash_xy(vine, 1, 360) % 8 - 3, T)], fill=(35, 75, 28), width=2)
+        # Feuilles le long de la tige
+        for ly in range(8, T - 5, 12):
+            lx = vx + hash_xy(vine, ly, 370) % 12 - 6
+            side = 1 if hash_xy(vine, ly, 371) % 2 == 0 else -1
+            lx1, lx2 = min(lx + side * 2, lx + side * 12), max(lx + side * 2, lx + side * 12)
+            d.ellipse([lx1, ly - 4, lx2, ly + 4], fill=(40, 95 + hash_xy(vine, ly, 372) % 30, 30))
+            lx3, lx4 = min(lx + side * 3, lx + side * 10), max(lx + side * 3, lx + side * 10)
+            d.ellipse([lx3, ly - 3, lx4, ly + 2], fill=(45, 110 + hash_xy(vine, ly, 373) % 20, 35))
     return img
 
 
@@ -1164,6 +1368,178 @@ def gen_bush():
     return img
 
 
+def gen_bush_thorny():
+    """Buisson epineux sombre."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = T // 2, T // 2 + 10
+    d.ellipse([cx - 28, cy + 12, cx + 28, cy + 22], fill=(0, 0, 0, 40))
+    d.ellipse([cx - 28, cy - 15, cx + 28, cy + 15], fill=(22, 55, 18))
+    d.ellipse([cx - 18, cy - 18, cx + 8, cy - 2], fill=(28, 68, 22))
+    # Epines
+    for i in range(8):
+        angle = i * math.pi / 4
+        sx = cx + int(math.cos(angle) * 26)
+        sy = cy + int(math.sin(angle) * 13)
+        ex = cx + int(math.cos(angle) * 35)
+        ey = cy + int(math.sin(angle) * 18)
+        d.line([(sx, sy), (ex, ey)], fill=(35, 25, 15), width=2)
+    d.ellipse([cx - 28, cy - 15, cx + 28, cy + 15], outline=(15, 38, 12), width=2)
+    return img
+
+
+def gen_bush_fern():
+    """Fougere basse."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = T // 2, T // 2 + 15
+    d.ellipse([cx - 20, cy + 8, cx + 20, cy + 16], fill=(0, 0, 0, 35))
+    # Fronds
+    for i in range(6):
+        angle = -math.pi/2 + (i - 2.5) * 0.5
+        for j in range(8, 32, 4):
+            fx = cx + int(math.cos(angle) * j)
+            fy = cy - int(abs(math.sin(angle)) * j * 0.4) + 5
+            sz = max(2, 6 - j // 8)
+            d.ellipse([fx - sz, fy - sz//2, fx + sz, fy + sz//2], fill=(20, 60 + j, 15))
+    return img
+
+
+def gen_bush_dead():
+    """Buisson mort / sec."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = T // 2, T // 2 + 10
+    d.ellipse([cx - 22, cy + 10, cx + 22, cy + 18], fill=(0, 0, 0, 35))
+    # Branches seches
+    for i in range(10):
+        angle = i * math.pi / 5 + 0.3
+        length = 15 + hash_xy(i, 0, 500) % 18
+        sx, sy = cx, cy
+        ex = cx + int(math.cos(angle) * length)
+        ey = cy + int(math.sin(angle) * length * 0.5) - 8
+        d.line([(sx, sy), (ex, ey)], fill=(55, 38, 22), width=2)
+        # Petites branches
+        if hash_xy(i, 1, 500) % 3 == 0:
+            bx = (sx + ex) // 2
+            by = (sy + ey) // 2
+            d.line([(bx, by), (bx + hash_xy(i, 2, 500) % 10 - 5, by - 8)], fill=(48, 32, 18), width=1)
+    # Quelques feuilles mortes
+    for i in range(4):
+        lx = cx - 15 + hash_xy(i, 0, 510) % 30
+        ly = cy + hash_xy(i, 1, 510) % 10
+        d.ellipse([lx - 3, ly - 2, lx + 3, ly + 2], fill=(85, 55, 20, 120))
+    return img
+
+
+def gen_tree_pine():
+    """Sapin sombre — forme triangulaire, vert fonce."""
+    S = T * 2  # bigger than a tile
+    img = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = S // 2, S // 2 + 10
+    # Ombre au sol
+    d.ellipse([cx - 35, cy + 40, cx + 35, cy + 55], fill=(0, 0, 0, 50))
+    # Tronc
+    d.rectangle([cx - 6, cy + 10, cx + 6, cy + 45], fill=(65, 42, 25))
+    d.rectangle([cx - 6, cy + 10, cx + 6, cy + 45], outline=(40, 25, 15), width=2)
+    # 3 etages de feuillage (triangles empiles)
+    layers = [
+        (cy + 15, 42, (25, 82, 28)),   # bas, large
+        (cy - 5, 35, (30, 95, 32)),    # milieu
+        (cy - 22, 26, (35, 108, 38)),  # haut
+    ]
+    for ly, w, col in layers:
+        d.polygon([(cx, ly - 30), (cx - w, ly + 10), (cx + w, ly + 10)], fill=col)
+        d.polygon([(cx, ly - 30), (cx - w, ly + 10), (cx + w, ly + 10)], outline=(18, 55, 15), width=2)
+        # Neige/givre sur les branches
+        d.line([(cx - w + 8, ly + 8), (cx - w + 18, ly + 2)], fill=(180, 195, 180, 80), width=2)
+    # Pointe
+    d.polygon([(cx, cy - 65), (cx - 8, cy - 45), (cx + 8, cy - 45)], fill=(38, 115, 42))
+    return img
+
+
+def gen_tree_oak():
+    """Chene — tronc epais, couronne ronde et touffue."""
+    S = T * 2
+    img = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = S // 2, S // 2 + 15
+    # Ombre
+    d.ellipse([cx - 40, cy + 35, cx + 40, cy + 52], fill=(0, 0, 0, 45))
+    # Tronc (epais, noueux)
+    d.rectangle([cx - 10, cy - 5, cx + 10, cy + 42], fill=(72, 48, 28))
+    d.rectangle([cx - 10, cy - 5, cx + 10, cy + 42], outline=(45, 28, 15), width=2)
+    # Branches visibles
+    d.line([(cx - 8, cy + 5), (cx - 25, cy - 15)], fill=(65, 42, 22), width=4)
+    d.line([(cx + 8, cy + 5), (cx + 28, cy - 12)], fill=(65, 42, 22), width=4)
+    d.line([(cx - 5, cy), (cx - 18, cy - 28)], fill=(60, 38, 20), width=3)
+    # Couronne (plusieurs cercles qui se chevauchent)
+    for ox, oy, r, col in [
+        (-18, -25, 22, (35, 100, 30)),
+        (15, -28, 20, (32, 92, 28)),
+        (0, -38, 24, (38, 108, 35)),
+        (-10, -42, 18, (42, 118, 38)),
+        (12, -40, 16, (40, 112, 36)),
+        (-25, -18, 15, (30, 88, 25)),
+        (25, -20, 14, (33, 95, 28)),
+    ]:
+        d.ellipse([cx + ox - r, cy + oy - r, cx + ox + r, cy + oy + r], fill=col)
+    # Outline de la couronne
+    d.ellipse([cx - 42, cy - 58, cx + 42, cy - 5], outline=(18, 55, 15), width=3)
+    # Highlights
+    d.ellipse([cx - 12, cy - 50, cx + 5, cy - 38], fill=(48, 128, 42, 150))
+    return img
+
+
+def gen_tree_spooky():
+    """Arbre mort effrayant — branches tordues, pas de feuilles, silhouette sombre."""
+    S = T * 2
+    img = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = S // 2, S // 2 + 15
+    # Ombre
+    d.ellipse([cx - 30, cy + 38, cx + 30, cy + 50], fill=(0, 0, 0, 40))
+    # Tronc tordu
+    trunk_col = (42, 30, 18)
+    d.polygon([(cx - 12, cy + 42), (cx + 12, cy + 42), (cx + 8, cy - 20), (cx - 8, cy - 20)],
+              fill=trunk_col)
+    d.polygon([(cx - 12, cy + 42), (cx + 12, cy + 42), (cx + 8, cy - 20), (cx - 8, cy - 20)],
+              outline=(30, 20, 10), width=2)
+    # Trou dans le tronc (visage effrayant)
+    d.ellipse([cx - 5, cy + 8, cx + 5, cy + 18], fill=(15, 10, 5))
+    d.ellipse([cx - 3, cy + 10, cx - 1, cy + 13], fill=(60, 180, 60, 80))  # oeil gauche luisant
+    d.ellipse([cx + 1, cy + 10, cx + 3, cy + 13], fill=(60, 180, 60, 80))  # oeil droit
+    # Branches mortes tordues (nombreuses)
+    branches = [
+        [(cx, cy - 20), (cx - 30, cy - 45), (cx - 45, cy - 55)],
+        [(cx, cy - 20), (cx + 25, cy - 48), (cx + 42, cy - 62)],
+        [(cx - 30, cy - 45), (cx - 38, cy - 35), (cx - 50, cy - 38)],
+        [(cx + 25, cy - 48), (cx + 35, cy - 38)],
+        [(cx, cy - 18), (cx - 15, cy - 55), (cx - 8, cy - 68)],
+        [(cx, cy - 18), (cx + 12, cy - 58), (cx + 18, cy - 70)],
+        [(cx - 45, cy - 55), (cx - 52, cy - 48)],
+        [(cx + 42, cy - 62), (cx + 50, cy - 55)],
+        [(cx - 8, cy - 68), (cx - 18, cy - 72)],
+        [(cx + 18, cy - 70), (cx + 25, cy - 68)],
+    ]
+    for branch in branches:
+        d.line(branch, fill=trunk_col, width=3)
+    # Branches plus fines
+    thin_branches = [
+        [(cx - 38, cy - 35), (cx - 48, cy - 30)],
+        [(cx + 35, cy - 38), (cx + 45, cy - 32)],
+        [(cx - 52, cy - 48), (cx - 58, cy - 42)],
+        [(cx + 50, cy - 55), (cx + 55, cy - 48)],
+    ]
+    for b in thin_branches:
+        d.line(b, fill=(35, 25, 15), width=2)
+    # Outline tronc
+    d.line([(cx - 12, cy + 42), (cx - 8, cy - 20)], fill=(30, 20, 10), width=2)
+    d.line([(cx + 12, cy + 42), (cx + 8, cy - 20)], fill=(30, 20, 10), width=2)
+    return img
+
+
 # ==================== ASSEMBLY ====================
 
 def make_atlas(tiles, cols=None):
@@ -1195,17 +1571,22 @@ def main():
     make_atlas(grounds).save(os.path.join(OUTPUT, "ground-atlas.png"))
     print(f"  ground-atlas.png ({len(grounds)} tiles, {T}x{T} each)")
 
-    print("Generating wall front atlas (5 variants)...")
+    print("Generating wall front atlas (9 variants)...")
     wall_fronts = [
         gen_wall_front_red_brick(), gen_wall_front_gray_stone(),
         gen_wall_front_wood(), gen_wall_front_gray_brick(),
         gen_wall_front_mossy(),
+        gen_wall_front_dark_stone(), gen_wall_front_cracked_brick(),
+        gen_wall_front_cobblestone(), gen_wall_front_vine_stone(),
     ]
     make_atlas(wall_fronts).save(os.path.join(OUTPUT, "wall-front-atlas.png"))
     print(f"  wall-front-atlas.png ({len(wall_fronts)} variants)")
 
-    print("Generating wall top atlas (5 variants)...")
-    top_colors = [(135, 115, 100), (110, 112, 120), (105, 82, 65), (100, 102, 108), (125, 108, 95)]
+    print("Generating wall top atlas (9 variants)...")
+    top_colors = [
+        (135, 115, 100), (110, 112, 120), (105, 82, 65), (100, 102, 108), (125, 108, 95),
+        (55, 55, 62), (120, 100, 88), (82, 80, 75), (100, 108, 98),
+    ]
     wall_tops = [gen_wall_top(c, i) for i, c in enumerate(top_colors)]
     make_atlas(wall_tops).save(os.path.join(OUTPUT, "wall-top-atlas.png"))
     print(f"  wall-top-atlas.png ({len(wall_tops)} variants)")
@@ -1262,9 +1643,29 @@ def main():
         fimg.save(os.path.join(OUTPUT, f"furniture-{name}.png"))
         print(f"  furniture-{name}.png ({fimg.size[0]}x{fimg.size[1]})")
 
+    print("Generating exterior stone atlas (5 variants)...")
+    ext_stones = [
+        gen_wall_exterior_stone_1(), gen_wall_exterior_stone_2(),
+        gen_wall_exterior_stone_3(), gen_wall_exterior_stone_4(),
+        gen_wall_exterior_stone_5(),
+    ]
+    make_atlas(ext_stones).save(os.path.join(OUTPUT, "wall-exterior-atlas.png"))
+    ext_tops = [gen_wall_top((88, 86, 82), i+20) for i in range(5)]
+    make_atlas(ext_tops).save(os.path.join(OUTPUT, "wall-exterior-top-atlas.png"))
+    print(f"  wall-exterior-atlas.png + wall-exterior-top-atlas.png (5 variants)")
+
     print("Generating bush...")
     gen_bush().save(os.path.join(OUTPUT, "bush.png"))
     print("  bush.png")
+
+    print("Generating trees...")
+    gen_tree_pine().save(os.path.join(OUTPUT, "tree-pine.png"))
+    gen_tree_oak().save(os.path.join(OUTPUT, "tree-oak.png"))
+    gen_tree_spooky().save(os.path.join(OUTPUT, "tree-spooky.png"))
+    gen_bush_thorny().save(os.path.join(OUTPUT, "bush-thorny.png"))
+    gen_bush_fern().save(os.path.join(OUTPUT, "bush-fern.png"))
+    gen_bush_dead().save(os.path.join(OUTPUT, "bush-dead.png"))
+    print("  tree-pine/oak/spooky.png, bush-thorny/fern/dead.png")
 
     print("\nDone!")
 
