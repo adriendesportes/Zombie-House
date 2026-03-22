@@ -555,83 +555,88 @@ class ThreeRenderer {
     }
   }
 
-  // ---- Ground (tiled canvas texture) ----
+  // ---- Ground (from HQ atlas textures) ----
   _buildGround(){
-    const cs = 32; // pixels per tile in texture
+    const cs = 64; // pixels per tile in ground texture (downscaled from 128 atlas)
     const gCanvas = document.createElement('canvas');
     gCanvas.width = COLS * cs;
     gCanvas.height = ROWS * cs;
     const gCtx = gCanvas.getContext('2d');
 
-    for(let r=0; r<ROWS; r++){
-      for(let c=0; c<COLS; c++){
-        const t = MAP[r][c];
-        const h = hashF(r,c,0), h2=hashF(r,c,1), h3=hashF(r,c,2);
-        const sx = c*cs, sy = r*cs;
-        if(t===GND||t===BUSH){
-          const gB=Math.floor(125+h*30),gR=Math.floor(48+h*18),gBl=Math.floor(28+h*15);
-          gCtx.fillStyle=`rgb(${gR},${gB},${gBl})`;gCtx.fillRect(sx,sy,cs,cs);
-          gCtx.fillStyle=`rgba(${gR+15},${gB+20},${gBl+10},0.5)`;
-          gCtx.beginPath();gCtx.ellipse(sx+8+h2*6,sy+8+h3*6,5+h2*3,3+h3*2,h*3,0,6.28);gCtx.fill();
-        } else if(t===STONE){
-          const sv=Math.floor(88+h*18);
-          gCtx.fillStyle=`rgb(${sv},${sv},${sv+10})`;gCtx.fillRect(sx,sy,cs,cs);
-          gCtx.fillStyle=`rgb(${sv-8},${sv-8},${sv+2})`;
-          gCtx.fillRect(sx,sy,cs/2-1,cs/2-1);gCtx.fillRect(sx+cs/2+1,sy+cs/2+1,cs/2-2,cs/2-2);
-          gCtx.fillStyle='rgba(255,255,255,0.06)';gCtx.fillRect(sx+2,sy+2,cs/2-4,2);
-        } else if(t===DIRT){
-          const b=Math.floor(100+h*22);
-          gCtx.fillStyle=`rgb(${b},${Math.floor(b*0.72)},${Math.floor(b*0.48)})`;gCtx.fillRect(sx,sy,cs,cs);
-          for(let i=0;i<5;i++){
-            const dx=hash(r,c,i+30)%24+2, dy=hash(r,c,i+40)%24+2;
-            gCtx.fillStyle=`rgba(0,0,0,${0.06+hashF(r,c,i+35)*0.06})`;
-            gCtx.fillRect(sx+dx,sy+dy,2,1);
+    // Load atlas images and draw when ready
+    const groundAtlas = new Image();
+    const doorAtlas = new Image();
+    const decoAtlas = new Image();
+    let atlasLoaded = 0;
+    const AT = 128; // atlas tile size
+
+    // Tile type to atlas index: grass=0, stone=1, dirt=2, gravel=3, wood=4, carpet=5, water=6
+    const typeToAtlas = {
+      [GND]: 0, [BUSH]: 0, [STONE]: 1, [DIRT]: 2, [GRAVEL]: 3,
+      [WOOD]: 4, [CARPET]: 5, [WATER]: 6, [DOOR]: -1,
+      [WALL]: 0, [WDEST]: 0, // under walls = grass
+    };
+    // Door variant: 0=arch, 1=wood, 2=grate
+    const decoTypeToAtlas = {
+      'bones':0, 'skull':1, 'crack':2, 'web':3, 'blood':4,
+      'pebbles':5, 'grass_tuft':6, 'mushroom':7, 'torch':8, 'puddle':9
+    };
+
+    const onAtlasLoad = () => {
+      atlasLoaded++;
+      if(atlasLoaded < 3) return;
+
+      // Draw ground tiles from atlas
+      for(let r=0; r<ROWS; r++){
+        for(let c=0; c<COLS; c++){
+          const t = MAP[r][c];
+          const dx = c * cs, dy = r * cs;
+
+          if(t === DOOR){
+            // Draw door from door atlas
+            const doorVar = hash(r, c, 900) % 3;
+            gCtx.drawImage(doorAtlas, doorVar * AT, 0, AT, AT, dx, dy, cs, cs);
+          } else {
+            const atlasIdx = typeToAtlas[t] ?? 0;
+            gCtx.drawImage(groundAtlas, atlasIdx * AT, 0, AT, AT, dx, dy, cs, cs);
           }
-        } else if(t===GRAVEL){
-          gCtx.fillStyle=`rgb(${148+Math.floor(h*20)},${135+Math.floor(h*18)},${118+Math.floor(h*15)})`;gCtx.fillRect(sx,sy,cs,cs);
-          for(let i=0;i<6;i++){
-            const dx=hash(r,c,i+60)%26+2, dy=hash(r,c,i+70)%26+2;
-            const sz=1+hash(r,c,i+80)%2;
-            gCtx.fillStyle=`rgba(100,90,75,0.6)`;
-            gCtx.beginPath();gCtx.arc(sx+dx,sy+dy,sz,0,6.28);gCtx.fill();
-          }
-        } else if(t===WOOD){
-          const wb=Math.floor(105+h*20);
-          gCtx.fillStyle=`rgb(${wb},${Math.floor(wb*0.72)},${Math.floor(wb*0.48)})`;gCtx.fillRect(sx,sy,cs,cs);
-          const pH=Math.floor(cs/5);
-          for(let py=0;py<cs;py+=pH){
-            gCtx.strokeStyle='rgba(60,40,20,0.4)';gCtx.lineWidth=1;
-            gCtx.beginPath();gCtx.moveTo(sx,sy+py);gCtx.lineTo(sx+cs,sy+py);gCtx.stroke();
-          }
-        } else if(t===CARPET){
-          const cr=Math.floor(140+h*20),cg=Math.floor(25+h*12);
-          gCtx.fillStyle=`rgb(${cr},${cg},${cg})`;gCtx.fillRect(sx,sy,cs,cs);
-          gCtx.strokeStyle=`rgb(${cr+20},${cg+15},${cg+10})`;gCtx.lineWidth=1.5;
-          gCtx.strokeRect(sx+2,sy+2,cs-4,cs-4);
-          gCtx.fillStyle=`rgba(${cr+40},${cg+30},${cg+20},0.5)`;
-          gCtx.beginPath();gCtx.arc(sx+cs/2,sy+cs/2,4,0,6.28);gCtx.fill();
-        } else if(t===DOOR){
-          gCtx.fillStyle='#3a3028';gCtx.fillRect(sx,sy,cs,cs);
-          gCtx.fillStyle='#5a5048';gCtx.fillRect(sx+2,sy+2,cs-4,cs-4);
-          gCtx.strokeStyle='#6a6058';gCtx.lineWidth=1;
-          gCtx.strokeRect(sx+4,sy+4,cs-8,cs-8);
-        } else if(t===WATER){
-          gCtx.fillStyle=`rgb(25,105,170)`;gCtx.fillRect(sx,sy,cs,cs);
-          gCtx.fillStyle='rgba(255,255,255,0.15)';
-          gCtx.fillRect(sx+4,sy+8,cs-8,2);
-          gCtx.fillRect(sx+6,sy+18,cs-10,2);
-        } else {
-          // under walls - grass
-          const gB2=Math.floor(130+h*20),gR2=Math.floor(50+h*12);
-          gCtx.fillStyle=`rgb(${gR2},${gB2},${Math.floor(30+h*10)})`;gCtx.fillRect(sx,sy,cs,cs);
         }
       }
-    }
+
+      // Draw decorations on top of ground
+      for(let r=0; r<ROWS; r++){
+        for(let c=0; c<COLS; c++){
+          const d = DECO[r][c];
+          if(d === DECO_NONE) continue;
+          const decoNames = ['bones','skull','crack','web','blood','pebbles','grass_tuft','mushroom','torch','puddle'];
+          const name = decoNames[d];
+          if(name === undefined) continue;
+          const atlasIdx = decoTypeToAtlas[name];
+          if(atlasIdx === undefined) continue;
+          const dx = c * cs, dy = r * cs;
+          gCtx.drawImage(decoAtlas, atlasIdx * AT, 0, AT, AT, dx, dy, cs, cs);
+        }
+      }
+
+      // Update texture
+      this.groundTex.needsUpdate = true;
+    };
+
+    groundAtlas.onload = onAtlasLoad;
+    doorAtlas.onload = onAtlasLoad;
+    decoAtlas.onload = onAtlasLoad;
+    groundAtlas.src = 'public/assets/tilesets/ground-atlas.png';
+    doorAtlas.src = 'public/assets/tilesets/door-atlas.png';
+    decoAtlas.src = 'public/assets/tilesets/deco-atlas.png';
+
+    // Fill with dark green while loading
+    gCtx.fillStyle = '#2d5a1e';
+    gCtx.fillRect(0, 0, gCanvas.width, gCanvas.height);
 
     const tex = new THREE.CanvasTexture(gCanvas);
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.magFilter = THREE.NearestFilter;
+    tex.magFilter = THREE.LinearFilter;
     tex.minFilter = THREE.LinearFilter;
 
     const geo = new THREE.PlaneGeometry(COLS, ROWS);
@@ -669,87 +674,127 @@ class ThreeRenderer {
 
     const H_IND = 0.8, H_DES = 0.6;
 
-    if(this.wallDataIndestructible.length>0){
-      const geo = new THREE.BoxGeometry(1, H_IND, 1);
-      const mat = new THREE.MeshToonMaterial({color: 0x888090});
-      const mesh = new THREE.InstancedMesh(geo, mat, this.wallDataIndestructible.length);
-      mesh.frustumCulled = false;
-      const dummy = new THREE.Object3D();
-      for(let i=0; i<this.wallDataIndestructible.length; i++){
-        const {r,c} = this.wallDataIndestructible[i];
-        const wv = hash(r,c,500)%5;
-        const colors = [0x806050, 0x606070, 0x785040, 0x607060, 0x706070];
-        dummy.position.set(c+0.5, H_IND/2, r+0.5);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-        const col = new THREE.Color(colors[wv]);
-        const hv = hashF(r,c,200);
-        col.r = Math.min(1, col.r + hv*0.1);
-        col.g = Math.min(1, col.g + hv*0.08);
-        col.b = Math.min(1, col.b + hv*0.06);
-        mesh.setColorAt(i, col);
-      }
-      mesh.instanceMatrix.needsUpdate = true;
-      if(mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      this.wallMeshIndestructible = mesh;
-      this.scene.add(mesh);
-    }
+    // Load wall textures from atlas
+    const loader = new THREE.TextureLoader();
+    const wallFrontTex = loader.load('public/assets/tilesets/wall-front-atlas.png');
+    const wallTopTex = loader.load('public/assets/tilesets/wall-top-atlas.png');
+    const wallDestTex = loader.load('public/assets/tilesets/wall-dest-atlas.png');
+    [wallFrontTex, wallTopTex, wallDestTex].forEach(t => {
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.LinearFilter;
+      t.colorSpace = THREE.SRGBColorSpace;
+    });
 
-    if(this.wallDataDestructible.length>0){
-      const geo = new THREE.BoxGeometry(1, H_DES, 1);
-      const mat = new THREE.MeshToonMaterial({color: 0xb08050});
-      const mesh = new THREE.InstancedMesh(geo, mat, this.wallDataDestructible.length);
-      mesh.frustumCulled = false;
-      const dummy = new THREE.Object3D();
-      for(let i=0; i<this.wallDataDestructible.length; i++){
-        const {r,c} = this.wallDataDestructible[i];
-        dummy.position.set(c+0.5, H_DES/2, r+0.5);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-        const col = new THREE.Color();
-        const wv = hash(r,c,550)%3;
-        const destColors = [0xa08840, 0x906030, 0x888080];
-        col.set(destColors[wv]);
-        const hv = hashF(r,c,201);
-        col.r = Math.min(1, col.r + hv*0.08);
-        col.g = Math.min(1, col.g + hv*0.08);
-        col.b = Math.min(1, col.b + hv*0.06);
-        mesh.setColorAt(i, col);
-      }
-      mesh.instanceMatrix.needsUpdate = true;
-      if(mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      this.wallMeshDestructible = mesh;
+    // Indestructible walls — individual boxes with atlas textures per face
+    for(const {r,c} of this.wallDataIndestructible){
+      const wv = hash(r,c,500) % 5; // wall variant
+      const hv = hashF(r,c,200);
+
+      // Create per-wall box with textured front face
+      const geo = new THREE.BoxGeometry(1, H_IND, 1);
+
+      // Front face texture (from atlas: 5 variants side by side, each 128px)
+      const frontMat = new THREE.MeshToonMaterial({color: 0xffffff});
+      const frontTex = wallFrontTex.clone();
+      frontTex.needsUpdate = true;
+      frontTex.repeat.set(1/5, 1);
+      frontTex.offset.set(wv/5, 0);
+      frontMat.map = frontTex;
+
+      // Top face texture
+      const topMat = new THREE.MeshToonMaterial({color: 0xffffff});
+      const topTexC = wallTopTex.clone();
+      topTexC.needsUpdate = true;
+      topTexC.repeat.set(1/5, 1);
+      topTexC.offset.set(wv/5, 0);
+      topMat.map = topTexC;
+
+      // Side faces: tinted solid color
+      const sideColor = new THREE.Color([0x705848, 0x555862, 0x685040, 0x506050, 0x605860][wv]);
+      sideColor.r = Math.min(1, sideColor.r + hv*0.08);
+      sideColor.g = Math.min(1, sideColor.g + hv*0.06);
+      sideColor.b = Math.min(1, sideColor.b + hv*0.05);
+      const sideMat = new THREE.MeshToonMaterial({color: sideColor});
+
+      // Box faces: right, left, top, bottom, front, back
+      const mats = [sideMat, sideMat, topMat, sideMat, frontMat, frontMat];
+      const mesh = new THREE.Mesh(geo, mats);
+      mesh.position.set(c+0.5, H_IND/2, r+0.5);
       this.scene.add(mesh);
     }
+    // Keep reference for collision but no InstancedMesh needed for now
+    this.wallMeshIndestructible = {dispose:()=>{}};
+
+    // Destructible walls — individual boxes with atlas textures
+    this._destWallMeshes = [];
+    for(const {r,c} of this.wallDataDestructible){
+      const wv = hash(r,c,550) % 3;
+      const hv = hashF(r,c,201);
+
+      const geo = new THREE.BoxGeometry(1, H_DES, 1);
+
+      // Front/back from destructible atlas (3 variants, but they include face+top in one image)
+      // The dest atlas has tiles of 128x(128+42), top part = face dessus, bottom = face avant
+      // For simplicity, use the atlas as front face texture
+      const frontMat = new THREE.MeshToonMaterial({color: 0xffffff});
+      const frontTex = wallDestTex.clone();
+      frontTex.needsUpdate = true;
+      frontTex.repeat.set(1/3, 128/170); // only the top 128px part (face dessus)
+      frontTex.offset.set(wv/3, 42/170); // skip the bottom 42px (face avant)
+      frontMat.map = frontTex;
+
+      // Top face = same texture upper part
+      const topMat = new THREE.MeshToonMaterial({color: 0xffffff});
+      const topTexC = wallDestTex.clone();
+      topTexC.needsUpdate = true;
+      topTexC.repeat.set(1/3, 128/170);
+      topTexC.offset.set(wv/3, 42/170);
+      topMat.map = topTexC;
+
+      const sideColor = new THREE.Color([0xa08840, 0x906030, 0x888080][wv]);
+      sideColor.r = Math.min(1, sideColor.r + hv*0.06);
+      sideColor.g = Math.min(1, sideColor.g + hv*0.06);
+      const sideMat = new THREE.MeshToonMaterial({color: sideColor});
+
+      const mats = [sideMat, sideMat, topMat, sideMat, frontMat, frontMat];
+      const mesh = new THREE.Mesh(geo, mats);
+      mesh.position.set(c+0.5, H_DES/2, r+0.5);
+      mesh.userData = {r, c};
+      this.scene.add(mesh);
+      this._destWallMeshes.push(mesh);
+    }
+    this.wallMeshDestructible = {dispose:()=>{}};
   }
 
-  // ---- Bushes ----
+  // ---- Bushes (billboard sprites from bush.png) ----
   _buildBushes(){
     for(const bm of this.bushMeshes) this.scene.remove(bm);
     this.bushMeshes = [];
+
+    const loader = new THREE.TextureLoader();
+    const bushTex = loader.load('public/assets/tilesets/bush.png');
+    bushTex.magFilter = THREE.NearestFilter;
+    bushTex.minFilter = THREE.LinearFilter;
+    bushTex.colorSpace = THREE.SRGBColorSpace;
+
     for(let r=0; r<ROWS; r++){
       for(let c=0; c<COLS; c++){
         if(MAP[r][c]!==BUSH) continue;
         const bh = hashF(r,c,99);
-        const group = new THREE.Group();
-        const sz = 0.38 + bh*0.12;
-        // Main sphere
-        const geo1 = new THREE.SphereGeometry(sz, 6, 4);
-        const mat1 = new THREE.MeshToonMaterial({color: 0x30a828, transparent: true, opacity: 0.85, depthWrite: false});
-        const s1 = new THREE.Mesh(geo1, mat1);
-        s1.scale.y = 0.55;
-        s1.position.set(0, sz*0.3, 0);
-        group.add(s1);
-        // Highlight sphere
-        const geo2 = new THREE.SphereGeometry(sz*0.55, 5, 3);
-        const mat2 = new THREE.MeshToonMaterial({color: 0x48d040, transparent: true, opacity: 0.7, depthWrite: false});
-        const s2 = new THREE.Mesh(geo2, mat2);
-        s2.scale.y = 0.5;
-        s2.position.set(-sz*0.2, sz*0.5, -sz*0.1);
-        group.add(s2);
-        group.position.set(c+0.5, 0, r+0.5);
-        this.scene.add(group);
-        this.bushMeshes.push(group);
+        const sz = 1.1 + bh * 0.3;
+
+        const mat = new THREE.SpriteMaterial({
+          map: bushTex,
+          transparent: true,
+          depthWrite: false,
+          alphaTest: 0.1,
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(sz, sz, 1);
+        sprite.position.set(c+0.5, sz*0.35, r+0.5);
+        sprite.center.set(0.5, 0.2);
+        this.scene.add(sprite);
+        this.bushMeshes.push(sprite);
       }
     }
   }
@@ -971,7 +1016,17 @@ class ThreeRenderer {
 
     // Rebuild walls if map changed
     if(state.mapVersion !== this.lastMapVersion){
-      this._rebuildWallMeshes();
+      // Remove destroyed wall meshes
+      if(this._destWallMeshes){
+        this._destWallMeshes = this._destWallMeshes.filter(m => {
+          if(MAP[m.userData.r][m.userData.c] !== WDEST){
+            this.scene.remove(m);
+            m.geometry.dispose();
+            return false;
+          }
+          return true;
+        });
+      }
       this.lastMapVersion = state.mapVersion;
     }
 
