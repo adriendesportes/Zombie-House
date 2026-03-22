@@ -2,28 +2,29 @@
 
 ## 1. Choix technologique
 
-### Framework : Phaser 3 (TypeScript)
+### Deux prototypes independants
 
-| Critère                | Phaser 3                                      |
-| ---------------------- | --------------------------------------------- |
-| Multi-plateforme       | Web = fonctionne partout (iOS, Android, Mac)  |
-| Vue isométrique        | Plugin isométrique natif + tilemap support     |
-| Performance mobile     | WebGL + fallback Canvas                        |
-| Sprites / Animations   | Sprite sheets, atlas, animations intégrées     |
-| Physique               | Arcade Physics (léger, suffisant pour top-down)|
-| Tilemap                | Support natif Tiled JSON                       |
-| Communauté             | Large, bien documenté                          |
-| Déploiement            | Static hosting (Vercel, Netlify, GitHub Pages) |
+Le projet est actuellement organise en deux renderers distincts, chacun dans un seul fichier HTML autonome. Il n'y a pas de bundler, pas de framework de jeu, pas de Tiled Map Editor.
+
+| Critere              | 2D Canvas (test-map.html)           | 3D Three.js (test-map-3d.html)         |
+| -------------------- | ------------------------------------ | --------------------------------------- |
+| Rendu                | HTML5 Canvas 2D natif               | Three.js (ES modules CDN)              |
+| Shading              | Dessin manuel, palette fixe         | MeshToonMaterial, cel-shading          |
+| Murs                 | Face top + face front dessinee       | BoxGeometry InstancedMesh              |
+| Personnages          | Sprite sheets PNG frame-by-frame    | Sprite billboard (PNG) + primitives    |
+| Dependances          | Aucune                              | Three.js CDN uniquement                |
+| Cible principale     | Gameplay, logique, mobile           | Exploration visuelle                   |
 
 ### Stack complet
 
 ```
-Phaser 3          — moteur de jeu
-TypeScript        — typage, maintenabilité
-Vite              — bundler (dev rapide, HMR)
-Tiled Map Editor  — création des maps (export JSON)
-localStorage      — sauvegarde locale
-PWA (optionnel)   — installation mobile
+2D renderer   — HTML5 Canvas 2D pur (test-map.html)
+3D renderer   — Three.js r165+ (ES modules, CDN) (test-map-3d.html)
+Tiles         — Python + Pillow (generation procedurale d'atlas PNG)
+Sprites       — Python + Pillow (generation procedurale) ou Gemini (LLM) + slicing Python
+Maps          — JSON manuel dans public/assets/maps/
+Sauvegarde    — localStorage
+PWA           — optionnel, mobile install
 ```
 
 ---
@@ -33,181 +34,304 @@ PWA (optionnel)   — installation mobile
 ```
 zombie-house/
 ├── Design/
-│   ├── Personnages/          # Illustrations haute résolution
-│   └── Maps/                 # Images de référence des maps
-├── public/
-│   └── assets/
-│       ├── sprites/
-│       │   ├── heroes/
-│       │   │   └── angel-monster/
-│       │   │       ├── idle.png
-│       │   │       ├── walk.png
-│       │   │       ├── attack.png
-│       │   │       └── special.png
-│       │   └── enemies/
-│       │       ├── zombie-normal.png
-│       │       ├── zombie-medium.png
-│       │       ├── zombie-rage.png
-│       │       └── bosses/
-│       ├── tilesets/
-│       │   └── manor-tileset.png
-│       ├── maps/
-│       │   ├── level-1.json        # Export Tiled
-│       │   └── level-1-collision.json
-│       ├── ui/
-│       │   ├── joystick-base.png
-│       │   ├── joystick-thumb.png
-│       │   ├── heart-full.png
-│       │   ├── heart-half.png
-│       │   ├── heart-empty.png
-│       │   └── buttons/
-│       └── audio/
-│           ├── music/
-│           │   ├── menu-theme.mp3
-│           │   ├── gameplay-exploration.mp3
-│           │   ├── gameplay-combat.mp3
-│           │   ├── boss-fight.mp3
-│           │   ├── victory.mp3
-│           │   └── game-over.mp3
-│           └── sfx/
-│               ├── player-footstep-wood.mp3
-│               ├── player-footstep-stone.mp3
-│               ├── player-attack-whoosh.mp3
-│               ├── player-special-electric.mp3
-│               ├── player-hit.mp3
-│               ├── player-death.mp3
-│               ├── zombie-groan.mp3
-│               ├── zombie-spawn-surprise.mp3
-│               ├── zombie-hit.mp3
-│               ├── zombie-death.mp3
-│               ├── boss-roar.mp3
-│               ├── door-creak.mp3
-│               ├── button-click.mp3
-│               ├── ambiance-manor.mp3
-│               ├── ui-click.mp3
-│               ├── ui-upgrade.mp3
-│               ├── ui-level-unlock.mp3
-│               └── ui-points.mp3
-├── src/
-│   ├── main.ts               # Point d'entrée Phaser
-│   ├── config.ts             # Configuration Phaser (résolution, physique)
-│   ├── scenes/
-│   │   ├── BootScene.ts      # Chargement initial
-│   │   ├── PreloadScene.ts   # Chargement des assets
-│   │   ├── MenuScene.ts      # Menu principal + sélection perso
-│   │   ├── UpgradeScene.ts   # Menu d'amélioration
-│   │   ├── LevelSelectScene.ts
-│   │   ├── GameScene.ts      # Gameplay principal
-│   │   ├── HUDScene.ts       # UI en jeu (cœurs, points, joystick)
-│   │   ├── DeathScene.ts     # Écran de mort
-│   │   └── VictoryScene.ts   # Écran de victoire
-│   ├── entities/
-│   │   ├── Player.ts         # Classe joueur (hérite de Phaser.GameObjects.Sprite)
-│   │   ├── Enemy.ts          # Classe ennemi de base
-│   │   ├── ZombieNormal.ts
-│   │   ├── ZombieMedium.ts
-│   │   ├── ZombieRage.ts
-│   │   ├── ZombieBoss.ts
-│   │   └── Projectile.ts    # Bras projeté, boule d'électricité
-│   ├── heroes/
-│   │   ├── HeroBase.ts       # Classe abstraite héros
-│   │   └── AngelMonster.ts   # Implémentation Angel Monster
-│   ├── systems/
-│   │   ├── InputManager.ts   # Joystick virtuel + clavier/souris
-│   │   ├── CollisionManager.ts
-│   │   ├── SpawnManager.ts   # Gestion des vagues de zombies
-│   │   ├── PointsManager.ts  # Score et économie
-│   │   ├── AudioManager.ts   # Musique + SFX + volume
-│   │   └── SaveManager.ts    # localStorage
-│   ├── ui/
-│   │   ├── VirtualJoystick.ts
-│   │   ├── HealthBar.ts
-│   │   └── PointsDisplay.ts
-│   ├── data/
-│   │   ├── heroes.ts         # Config des héros (stats par niveau)
-│   │   ├── enemies.ts        # Config des ennemis
-│   │   └── levels.ts         # Config des niveaux (ennemis, spawn points)
-│   └── utils/
-│       └── constants.ts
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
+│   ├── Personnages/
+│   │   ├── angel_monster.png               # Illustration menu haute resolution
+│   │   ├── angle_monster_vue_dessus.png
+│   │   └── sprites/                        # Sorties brutes LLM avant slicing
+│   ├── Tilesets/                           # Tentatives de tilesets LLM (reference)
+│   └── Maps/
+│       └── level_1_entree_manoir.png       # Image de reference niveau 1
+├── public/assets/
+│   ├── sprites/
+│   │   ├── heroes/
+│   │   │   └── angel-monster/
+│   │   │       ├── idle-front.png
+│   │   │       ├── idle-back.png
+│   │   │       ├── walk-front.png
+│   │   │       └── walk-back.png
+│   │   └── enemies/
+│   │       └── zombie-normal/
+│   │           ├── idle-front.png
+│   │           ├── idle-back.png
+│   │           ├── walk-front.png
+│   │           └── walk-back.png
+│   ├── tilesets/
+│   │   ├── ground-atlas.png                # 7 types de sol (128x128 par tile)
+│   │   ├── wall-front-atlas.png            # 5 variants de face avant
+│   │   ├── wall-top-atlas.png              # 5 variants de face superieure
+│   │   ├── wall-dest-atlas.png             # 3 murs destructibles
+│   │   ├── door-atlas.png                  # 3 variants de portes
+│   │   ├── deco-atlas.png                  # 10 types de decorations
+│   │   ├── bush.png                        # Sprite de buisson individuel
+│   │   └── tiles/                          # Tiles individuelles 32x32 (legacy)
+│   └── maps/
+│       └── level-1.json
+│   └── audio/
+│       ├── music/
+│       │   ├── menu-theme.mp3
+│       │   ├── gameplay-exploration.mp3
+│       │   ├── gameplay-combat.mp3
+│       │   ├── boss-fight.mp3
+│       │   ├── victory.mp3
+│       │   └── game-over.mp3
+│       └── sfx/
+│           ├── player-footstep-wood.mp3
+│           ├── player-footstep-stone.mp3
+│           ├── player-attack-whoosh.mp3
+│           ├── player-special-electric.mp3
+│           ├── player-hit.mp3
+│           ├── player-death.mp3
+│           ├── zombie-groan.mp3
+│           ├── zombie-spawn-surprise.mp3
+│           ├── zombie-hit.mp3
+│           ├── zombie-death.mp3
+│           ├── boss-roar.mp3
+│           ├── door-creak.mp3
+│           ├── button-click.mp3
+│           ├── ambiance-manor.mp3
+│           ├── ui-click.mp3
+│           ├── ui-upgrade.mp3
+│           ├── ui-level-unlock.mp3
+│           └── ui-points.mp3
+├── scripts/
+│   ├── generate_tiles_hq.py                # Generateur d'atlas 128x128 (actif)
+│   ├── generate_tiles.py                   # Generateur 32x32 (legacy)
+│   ├── generate_zombie_sprites.py          # Sprites zombie proceduraux
+│   ├── slice_sprite.py                     # Decoupe sprites LLM (fond blanc → frames)
+│   └── slice_tileset*.py                   # Scripts de decoupe de tilesets
+├── test-map.html                           # Prototype renderer 2D Canvas
+├── test-map-3d.html                        # Prototype renderer Three.js
+├── test-animation.html                     # Apercu des animations de sprites
 ├── PRD.md
-└── ARCH.md
+├── ARCH.md
+├── epic_suivi.md
+└── stories/
 ```
 
 ---
 
-## 3. Configuration Phaser
+## 3. Rendu 2D Canvas
 
-```typescript
-// src/config.ts
-const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,              // WebGL avec fallback Canvas
-  width: 390,                     // iPhone 14 width (portrait)
-  height: 844,                    // iPhone 14 height (portrait)
-  scale: {
-    mode: Phaser.Scale.FIT,       // S'adapte à l'écran
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { x: 0, y: 0 },   // Top-down, pas de gravité
-      debug: false,
-    },
-  },
-  scene: [BootScene, PreloadScene, MenuScene, UpgradeScene,
-          LevelSelectScene, GameScene, HUDScene, DeathScene, VictoryScene],
-};
+### 3.1 Grille et coordonnees
+
+- Tiles carrees de **40x40 px** (taille affichage, pas la taille source de l'atlas).
+- Origine (0,0) en haut a gauche. X vers la droite, Y vers le bas.
+- Les murs occupent 40x40 en face superieure et ajoutent une **face avant de 40x14 px** qui depasse en dessous de la tile (cette face est rendue dans le Y-sort).
+
+### 3.2 Pipeline de rendu (8 passes)
+
+```
+1. Ground pass       : Toutes les tiles de sol, de gauche a droite, haut en bas.
+2. Decorations       : Decorations au sol (os, flaques, etc.) sous les entites.
+3. Wall shadows      : Ombres projetees par les murs (rectangle sombre sous la face avant).
+4. Y-sorted entities : Murs (face top + face avant), buissons, personnages, portes.
+                       Trie par coordonnee Y (bas de l'entite), du plus petit au plus grand.
+5. Projectiles       : Bras projetes, boules electriques.
+6. Particles         : Effets de particules (impact, explosion, fumee).
+7. Damage popups     : Nombres de degats flottants.
+8. UI overlay        : Coeurs, score, joystick virtuel, bouton attaque.
+```
+
+### 3.3 Y-sorting
+
+Chaque entite expose une valeur `sortY` (generalement le bas du sprite ou le milieu du personnage). La passe 4 trie toutes les entites par `sortY` croissant avant le dessin. Cela permet a un personnage devant un mur d'etre dessine apres le mur et donc de sembler en avant.
+
+### 3.4 Variation deterministe des tiles
+
+Pour eviter la repetition visuelle sans aleatoire au runtime, chaque position de tile utilise un hash de sa coordonnee (x, y) pour selectionner une variante dans l'atlas. Le rendu est identique a chaque chargement.
+
+```javascript
+function tileVariant(x, y, numVariants) {
+  const hash = (x * 73856093) ^ (y * 19349663);
+  return Math.abs(hash) % numVariants;
+}
 ```
 
 ---
 
-## 4. Architecture des entités
+## 4. Rendu 3D Three.js
 
-### 4.1 Hiérarchie des classes
+### 4.1 Camera
+
+- `PerspectiveCamera`, FOV ~50, positionnee au-dessus et derriere le joueur.
+- Suivi du joueur par interpolation lineaire (`lerp`) sur la cible de la camera.
+
+### 4.2 Sol
+
+- `PlaneGeometry` unique couvrant la map entiere.
+- Texture generee via `CanvasTexture` (dessin des tiles sur un canvas offscreen).
+
+### 4.3 Murs
+
+- `InstancedMesh` avec `BoxGeometry` parametree en hauteur.
+- Chaque mur est une instance avec sa matrice de transformation.
+- Materiau : `MeshToonMaterial`.
+
+### 4.4 Personnages
+
+- Player : sprite billboard (plane qui fait face a la camera) avec la PNG du sprite sheet.
+- Zombies : geometries low-poly primitives (box/capsule) avec MeshToonMaterial.
+
+### 4.5 Eclairage
+
+- `AmbientLight` pour la lumiere de base.
+- `DirectionalLight` pour les ombres globales.
+- `PointLight` positionnes aux torches decoratives.
+
+### 4.6 Contours (cel-shading outlines)
+
+- Technique "inverted hull" : le mesh est duplique, les faces sont inversees, le materiau est noir opaque avec `side: BackSide`, et la geometrie est legrement agrandie. Cela produit un contour epais visible.
+
+### 4.7 Effets
+
+- Projectiles : sphere avec trail (suite de spheres degressives en opacite).
+- Particules : pool pre-alloue de `Sprite` Three.js recycles.
+- Popups de degats : `Sprite` Three.js avec texture texte generee sur canvas.
+
+### 4.8 UI
+
+- Overlay HTML positionne par-dessus le canvas Three.js.
+- Joystick virtuel et bouton attaque en HTML/CSS pour les mobiles.
+- Compteurs (coeurs, score) en HTML.
+
+---
+
+## 5. Format des maps (JSON)
+
+Les maps sont definies manuellement en JSON. Pas de Tiled Map Editor.
+
+```json
+{
+  "width": 30,
+  "height": 50,
+  "tileSize": 40,
+  "layers": {
+    "ground": [
+      [1, 1, 1, 0, 0],
+      [1, 1, 0, 0, 0]
+    ],
+    "walls": [
+      [0, 0, 2, 2, 2],
+      [0, 0, 2, 0, 2]
+    ],
+    "decorations": [
+      [0, 3, 0, 0, 0],
+      [0, 0, 0, 0, 0]
+    ]
+  },
+  "objects": [
+    { "type": "player_spawn", "x": 3, "y": 45 },
+    { "type": "zombie_normal", "x": 10, "y": 20 },
+    { "type": "zombie_boss", "x": 15, "y": 5 },
+    { "type": "door", "x": 12, "y": 30, "trigger": "switch_1" },
+    { "type": "surprise_spawn", "subtype": "zombie_rage", "x": 8, "y": 15,
+      "trigger": "proximity", "animation": "fall_ceiling" }
+  ]
+}
+```
+
+- Les couches `ground`, `walls`, `decorations` sont des tableaux 2D d'indices de tiles (0 = vide).
+- Les indices referent aux colonnes des atlas PNG correspondants.
+- Les objets definissent les entites dynamiques, spawn points et triggers.
+
+---
+
+## 6. Pipeline d'assets
+
+### 6.1 Tiles (Python + Pillow)
+
+Le script `scripts/generate_tiles_hq.py` genere les atlas PNG a 128x128 px par tile de maniere procedurale. Chaque atlas est une bande horizontale de N tiles.
 
 ```
-Phaser.GameObjects.Sprite
-├── Player (HeroBase)
-│   └── AngelMonster
-│       ├── stats: { hp, power, level }
-│       ├── attack()         → lance un bras (Projectile)
-│       └── specialAttack()  → boule d'électricité (si level 11)
-├── Enemy
-│   ├── ZombieNormal    → suit le joueur, lent
-│   ├── ZombieMedium    → suit + esquive
-│   ├── ZombieRage      → charge en ligne droite
-│   └── ZombieBoss      → patterns d'attaque uniques
-└── Projectile
-    ├── ArmProjectile       → ligne droite, portée limitée
-    └── ElectricBall        → AoE explosion à l'impact
+python scripts/generate_tiles_hq.py
+→ public/assets/tilesets/ground-atlas.png      (7 tiles)
+→ public/assets/tilesets/wall-front-atlas.png  (5 tiles)
+→ public/assets/tilesets/wall-top-atlas.png    (5 tiles)
+→ public/assets/tilesets/wall-dest-atlas.png   (3 tiles)
+→ public/assets/tilesets/door-atlas.png        (3 tiles)
+→ public/assets/tilesets/deco-atlas.png        (10 tiles)
 ```
 
-### 4.2 Stats des héros par niveau
+Le renderer charge ces atlas et extrait chaque tile par decalage (`sourceX = tileIndex * 128`), puis la redimensionne a 40x40 px (ou 40x14 px pour la face avant).
 
-```typescript
-// src/data/heroes.ts
-export const ANGEL_MONSTER = {
-  name: 'Angel Monster',
+### 6.2 Sprites de personnages (pipeline LLM + slicing)
+
+```
+1. Generation via Gemini (LLM) : personnage sur fond blanc, vue de face ou de dos.
+2. scripts/slice_sprite.py     : suppression du fond blanc, detection des frames,
+                                 assemblage en sprite sheet PNG transparent.
+3. Resultat                    : public/assets/sprites/heroes/angel-monster/idle-front.png, etc.
+```
+
+### 6.3 Sprites zombies (Python procedural)
+
+```
+python scripts/generate_zombie_sprites.py
+→ public/assets/sprites/enemies/zombie-normal/idle-front.png
+→ public/assets/sprites/enemies/zombie-normal/idle-back.png
+→ public/assets/sprites/enemies/zombie-normal/walk-front.png
+→ public/assets/sprites/enemies/zombie-normal/walk-back.png
+```
+
+---
+
+## 7. Architecture des entites (2D Canvas)
+
+### 7.1 Hierarchie conceptuelle
+
+```
+Entity (base)
+├── props : x, y, width, height, sortY
+├── update(delta)
+└── draw(ctx)
+
+Player extends Entity
+├── stats      : hp, maxHp, power, speed, level
+├── facingDown : boolean (true = vue front, false = vue back)
+├── spriteSheet: { idleFront, idleBack, walkFront, walkBack }
+├── move(dx, dy)
+├── attack()           → cree un ArmProjectile vers la cible la plus proche
+└── specialAttack()    → cree un ElectricBall (si level 11, cooldown OK)
+
+Enemy extends Entity
+├── type      : 'normal' | 'medium' | 'rage' | 'boss'
+├── hp, maxHp, damage, speed, points
+├── facingDown: boolean
+└── update(delta) → pathfinding vers le joueur
+
+ZombieNormal extends Enemy
+ZombieMedium extends Enemy
+ZombieRage   extends Enemy  → charge en ligne droite
+ZombieBoss   extends Enemy  → patterns d'attaque
+
+Projectile extends Entity
+├── vx, vy, damage, range, traveled
+├── type : 'arm' | 'electric'
+└── update(delta) → deplacement, detection collision, expiration
+
+Particle extends Entity
+└── pool pre-alloue, recyclage apres duree de vie
+```
+
+### 7.2 Stats Angel Monster par niveau
+
+```javascript
+const ANGEL_MONSTER = {
   baseStats: {
-    hp: 6,          // 3 cœurs = 6 demi-cœurs
-    power: 1,       // Dégâts de base
+    hp: 6,          // 3 coeurs = 6 demi-coeurs
+    power: 1,
     speed: 150,     // px/sec
-    attackRange: 5,  // tiles
+    attackRange: 5, // tiles
   },
-  levelMultipliers: {
-    // Chaque niveau augmente power de +10% et hp de +1 demi-cœur
-    power: 0.10,
-    hp: 1,
+  levelBonus: {
+    power: 0.10,    // +10% par niveau
+    hp: 1,          // +1 demi-coeur par niveau
   },
   specialAttack: {
     unlockLevel: 11,
-    cooldown: 15000,  // ms
-    radius: 3,        // tiles
-    damage: 999,      // one-shot tout
+    cooldown: 15000, // ms
+    radius: 3,       // tiles
+    damage: 999,
   },
   upgradeCosts: [0, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
 };
@@ -215,325 +339,219 @@ export const ANGEL_MONSTER = {
 
 ---
 
-## 5. Système de map (Dual-Layer)
+## 8. Systeme d'input
 
-### 5.1 Pipeline de création d'une map
+### 8.1 Desktop
 
-```
-1. Image de référence (LLM)     →  Design/Maps/level_X.png
-2. Ouvrir dans Tiled Map Editor  →  Créer la tilemap
-3. Layer "ground"                →  Tiles de sol (visuel)
-4. Layer "walls"                 →  Tiles de murs (collision)
-5. Layer "decoration"            →  Meubles, objets (certains avec collision)
-6. Layer "objects"               →  Spawn points, portes, triggers
-7. Export JSON                   →  public/assets/maps/level-X.json
-```
+```javascript
+// Mouvement : ZQSD ou WASD
+// Attaque   : Espace ou clic gauche (auto-vise le zombie le plus proche)
+// Special   : (niveau 11 uniquement)
 
-### 5.2 Format Tiled
-
-```json
-{
-  "width": 30,
-  "height": 50,
-  "tilewidth": 64,
-  "tileheight": 64,
-  "layers": [
-    { "name": "ground", "type": "tilelayer", "data": [...] },
-    { "name": "walls", "type": "tilelayer", "data": [...] },
-    { "name": "decoration", "type": "tilelayer", "data": [...] },
-    {
-      "name": "objects", "type": "objectgroup",
-      "objects": [
-        { "name": "player_spawn", "x": 192, "y": 2800 },
-        { "name": "zombie_spawn", "type": "zombie_normal", "x": 500, "y": 400 },
-        { "name": "door", "x": 320, "y": 600, "properties": { "trigger": "button_1" } },
-        { "name": "surprise_spawn", "type": "zombie_rage", "x": 700, "y": 300,
-          "properties": { "trigger": "proximity", "animation": "fall_ceiling" } }
-      ]
-    }
-  ]
-}
+window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keyup',   e => { keys[e.code] = false; });
+canvas.addEventListener('click',   () => player.attack());
 ```
 
-### 5.3 Specs techniques pour générer les images de map
+### 8.2 Mobile
 
-Pour demander à un LLM de générer les visuels de map compatibles avec le jeu :
+- **Joystick virtuel gauche** : zone touch HTML positionnee en bas a gauche. Calcul du vecteur direction normalise depuis le centre du joystick.
+- **Bouton attaque droit** : zone touch HTML en bas a droite. Declenche `player.attack()` en continu pendant la pression.
+- **Bouton special** : apparait au niveau 11.
+- L'UI mobile est un overlay HTML sur le canvas.
 
-```
-TILESET (à générer une seule fois, réutilisé pour toutes les maps) :
-- Format : PNG, grille de tiles 64x64 px
-- Vue : isométrique ~30° surélevée
-- Style : manoir hanté, cartoon sombre (Brawl Stars)
-- Contenu requis :
-  Row 1 : sols (parquet clair, parquet sombre, pierre, terre, herbe, carrelage)
-  Row 2 : murs (brique N, brique S, brique E, brique O, coin NE, coin NO, coin SE, coin SO)
-  Row 3 : portes (fermée N/S, fermée E/O, ouverte N/S, ouverte E/O)
-  Row 4 : meubles (table, chaise, lit, bibliothèque, coffre, canapé)
-  Row 5 : décors (chandelier, tableau, tapis, plante morte, toile d'araignée)
-  Row 6 : escaliers (montée, descente), trappe sol, trou plafond
-- Palette : tons sombres (brun, gris, violet foncé) + accents lumineux (bougies orange, lueur verte/bleue)
-- Pas de fond (transparent)
-- Cohérence de style entre toutes les tiles
+### 8.3 Detection de plateforme
 
-IMAGE DE RÉFÉRENCE PAR NIVEAU (pour le level design) :
-- Format : PNG, 1920x1080 px minimum
-- Vue : isométrique identique au tileset
-- Contenu : vue complète du niveau avec toutes les pièces visibles
-- Labels texte sur chaque pièce (comme level_1_entree_manoir.png)
-- Cette image sert de GUIDE pour placer les tiles dans Tiled, pas d'asset in-game
+```javascript
+const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent)
+              || ('ontouchstart' in window);
+// Affiche joystick/boutons si mobile, masque sinon.
 ```
 
 ---
 
-## 6. Système d'input (mobile + desktop)
+## 9. Game loop
 
-```typescript
-// src/systems/InputManager.ts
-class InputManager {
-  private joystickMove: VirtualJoystick;   // Joystick gauche
-  private joystickAim: VirtualJoystick;    // Joystick droit (tir)
-  private keys: Phaser.Input.Keyboard.CursorKeys;
-  private mouse: Phaser.Input.Pointer;
+```javascript
+let lastTime = 0;
 
-  getMovement(): Phaser.Math.Vector2 {
-    // Mobile : joystick gauche
-    // Desktop : ZQSD/WASD
-    // Retourne vecteur direction normalisé
+function gameLoop(timestamp) {
+  const delta = (timestamp - lastTime) / 1000; // secondes
+  lastTime = timestamp;
+
+  // 1. Input
+  const { dx, dy } = getMovementInput();
+  player.move(dx * player.speed * delta, dy * player.speed * delta);
+
+  // 2. Attaque auto ou manuelle
+  if (isAttacking()) player.attack();
+  if (isSpecial() && player.level >= 11) player.specialAttack();
+
+  // 3. IA ennemis
+  for (const enemy of enemies) {
+    enemy.update(delta);
   }
 
-  getAimDirection(): Phaser.Math.Vector2 {
-    // Mobile : joystick droit (direction au relâchement = tir)
-    // Desktop : direction vers curseur souris
+  // 4. Projectiles
+  for (const proj of projectiles) {
+    proj.update(delta);
   }
 
-  isAttacking(): boolean {
-    // Mobile : relâchement joystick droit
-    // Desktop : clic gauche
-  }
+  // 5. Collisions
+  checkProjectileVsEnemies();
+  checkEnemiesVsPlayer();
+  checkPlayerVsWalls();
+  checkPlayerVsDoors();
 
-  isSpecialAttack(): boolean {
-    // Mobile : bouton spécial
-    // Desktop : espace
-  }
+  // 6. Spawns programmes
+  spawnManager.update(delta);
+
+  // 7. Conditions de fin
+  if (enemies.length === 0) triggerVictory();
+  if (player.hp <= 0)       triggerDeath();
+
+  // 8. Rendu (8 passes)
+  render();
+
+  requestAnimationFrame(gameLoop);
 }
 ```
 
 ---
 
-## 7. Game loop (GameScene)
+## 10. Systeme audio
 
-```
-update(time, delta):
-  1. InputManager.getMovement()     → déplacer le joueur
-  2. InputManager.getAimDirection() → orienter le joueur
-  3. Si isAttacking()               → créer Projectile
-  4. Si isSpecialAttack() + lvl 11  → créer ElectricBall
-  5. Pour chaque Enemy:
-       - AI : pathfinding vers joueur
-       - Zombies surprise : vérifier trigger proximity
-  6. CollisionManager.check()
-       - Projectile vs Enemy → dégâts, points
-       - Enemy vs Player     → perte de vie
-       - Player vs Walls     → bloquer
-       - Player vs Door      → ouvrir si bouton activé
-  7. SpawnManager.update()          → spawns programmés
-  8. Vérifier victoire (tous ennemis tués)
-  9. Vérifier mort (0 cœurs)
-  10. HUDScene.update()             → afficher cœurs, points
-```
+### 10.1 Architecture
 
----
+L'audio utilise l'API Web Audio native. Pas de librairie audio tierce.
 
-## 8. Sauvegarde
+```javascript
+const AudioManager = {
+  ctx: new AudioContext(),
+  musicGain: null,    // GainNode pour la musique
+  sfxGain: null,      // GainNode pour les SFX
+  currentMusic: null, // AudioBufferSourceNode actif
 
-```typescript
-// src/systems/SaveManager.ts
-interface SaveData {
-  points: number;
-  maxLevelUnlocked: number;
-  heroes: {
-    [heroId: string]: {
-      unlocked: boolean;
-      level: number;       // 1-11
-    };
-  };
-  audio: {
-    musicVolume: number;   // 0.0 – 1.0, défaut 0.4
-    sfxVolume: number;     // 0.0 – 1.0, défaut 0.7
-    muted: boolean;
-  };
-}
-
-class SaveManager {
-  private static KEY = 'zombie-house-save';
-
-  static save(data: SaveData): void {
-    localStorage.setItem(this.KEY, JSON.stringify(data));
-  }
-
-  static load(): SaveData {
-    const raw = localStorage.getItem(this.KEY);
-    if (!raw) return this.defaultSave();
-    return JSON.parse(raw);
-  }
-
-  private static defaultSave(): SaveData {
-    return {
-      points: 0,
-      maxLevelUnlocked: 1,
-      heroes: {
-        'angel-monster': { unlocked: true, level: 1 },
-        'hero-2': { unlocked: false, level: 1 },
-        'hero-3': { unlocked: false, level: 1 },
-      },
-    };
-  }
-}
+  async playMusic(url, loop = true) { ... },
+  async crossfadeTo(url, duration = 1.0) { ... },
+  async playSFX(url) { ... },
+  setMusicVolume(vol) { this.musicGain.gain.value = vol; },
+  setSFXVolume(vol)   { this.sfxGain.gain.value = vol; },
+  // Deblocage autoplay mobile : appele au premier touch
+  unlock() { if (this.ctx.state === 'suspended') this.ctx.resume(); },
+};
 ```
 
----
-
-## 9. Système audio (AudioManager)
-
-### 9.1 Architecture
-
-```typescript
-// src/systems/AudioManager.ts
-class AudioManager {
-  private scene: Phaser.Scene;
-  private currentMusic: Phaser.Sound.BaseSound | null;
-  private ambianceLoop: Phaser.Sound.BaseSound | null;
-  private musicVolume: number;  // 0.0 – 1.0
-  private sfxVolume: number;    // 0.0 – 1.0
-  private muted: boolean;
-
-  // Musique — une seule piste active à la fois, crossfade entre pistes
-  playMusic(key: string, loop?: boolean): void;
-  stopMusic(fadeOut?: number): void;
-  crossfadeTo(key: string, duration?: number): void;
-
-  // SFX — fire-and-forget, supporte plusieurs sons simultanés
-  playSFX(key: string, config?: { volume?: number, rate?: number }): void;
-
-  // Ambiance — boucle indépendante de la musique (craquements manoir)
-  startAmbiance(key: string): void;
-  stopAmbiance(): void;
-
-  // Volume
-  setMusicVolume(vol: number): void;
-  setSFXVolume(vol: number): void;
-  toggleMute(): void;
-}
-```
-
-### 9.2 Déclenchement contextuel
+### 10.2 Declenchement contextuel
 
 ```
-GameScene.update():
-  - Aucun ennemi à proximité     → crossfade vers "gameplay-exploration"
-  - Ennemi à < 5 tiles           → crossfade vers "gameplay-combat"
-  - Boss spawn                   → crossfade vers "boss-fight"
-  - Victoire                     → stopMusic + play "victory"
-  - Mort                         → stopMusic + play "game-over"
+game loop :
+  - Aucun ennemi a proximite     → crossfadeTo("gameplay-exploration")
+  - Ennemi a moins de 5 tiles    → crossfadeTo("gameplay-combat")
+  - Boss spawn                   → crossfadeTo("boss-fight")
+  - Victoire                     → stopMusic() + playSFX("victory")
+  - Mort                         → stopMusic() + playSFX("game-over")
 
-SpawnManager:
+spawnManager :
   - Zombie surprise              → playSFX("zombie-spawn-surprise")
   - Boss apparition              → playSFX("boss-roar")
 
-CollisionManager:
-  - Projectile hit enemy         → playSFX("zombie-hit")
-  - Enemy killed                 → playSFX("zombie-death")
-  - Player hit                   → playSFX("player-hit")
-  - Player death                 → playSFX("player-death")
+collision :
+  - Projectile touche ennemi     → playSFX("zombie-hit")
+  - Ennemi tue                   → playSFX("zombie-death")
+  - Joueur touche                → playSFX("player-hit")
+  - Joueur mort                  → playSFX("player-death")
 
-Player.update():
-  - En mouvement                 → playSFX("footstep-wood") tous les 0.3s
-  - Attaque                      → playSFX("player-attack-whoosh")
-  - Attaque spéciale             → playSFX("player-special-electric")
+player.move() :
+  - En deplacement               → playSFX("footstep-wood") tous les 0.3s
 
-Door interaction:
-  - Ouverture                    → playSFX("door-creak")
-  - Bouton pressé                → playSFX("button-click")
-```
-
-### 9.3 Gestion mobile (autoplay policy)
-
-Les navigateurs mobiles bloquent l'audio avant une interaction utilisateur. Solution :
-```typescript
-// Dans BootScene ou au premier touch
-this.input.once('pointerdown', () => {
-  this.sound.unlock();  // Phaser gère le déblocage WebAudio
-});
-```
-
-### 9.4 Chargement des assets audio
-
-```typescript
-// PreloadScene.ts
-// Musiques (streaming pour réduire la mémoire)
-this.load.audio('music-menu', 'assets/audio/music/menu-theme.mp3');
-this.load.audio('music-exploration', 'assets/audio/music/gameplay-exploration.mp3');
-this.load.audio('music-combat', 'assets/audio/music/gameplay-combat.mp3');
-this.load.audio('music-boss', 'assets/audio/music/boss-fight.mp3');
-this.load.audio('sfx-victory', 'assets/audio/music/victory.mp3');
-this.load.audio('sfx-gameover', 'assets/audio/music/game-over.mp3');
-
-// SFX (chargés en mémoire, petits fichiers)
-this.load.audio('sfx-footstep-wood', 'assets/audio/sfx/player-footstep-wood.mp3');
-this.load.audio('sfx-attack', 'assets/audio/sfx/player-attack-whoosh.mp3');
-this.load.audio('sfx-special', 'assets/audio/sfx/player-special-electric.mp3');
-// ... etc.
+player.attack() :
+  - Attaque normale              → playSFX("player-attack-whoosh")
+  - Attaque speciale             → playSFX("player-special-electric")
 ```
 
 ---
 
-## 10. Responsive et adaptation écran
+## 11. Sauvegarde
+
+```javascript
+const SaveManager = {
+  KEY: 'zombie-house-save',
+
+  defaultSave: () => ({
+    points: 0,
+    maxLevelUnlocked: 1,
+    heroes: {
+      'angel-monster': { unlocked: true, level: 1 },
+      'hero-2':         { unlocked: false, level: 1 },
+      'hero-3':         { unlocked: false, level: 1 },
+    },
+    audio: {
+      musicVolume: 0.4,
+      sfxVolume: 0.7,
+      muted: false,
+    },
+  }),
+
+  save(data)  { localStorage.setItem(this.KEY, JSON.stringify(data)); },
+  load()      {
+    const raw = localStorage.getItem(this.KEY);
+    return raw ? JSON.parse(raw) : this.defaultSave();
+  },
+};
+```
+
+---
+
+## 12. Responsive et adaptation ecran
 
 ```
-Résolution de base : 390 x 844 (iPhone 14, portrait)
-Mode de scaling : Phaser.Scale.FIT
-Centre : AUTO_CENTER
+Resolution de base : 390 x 844 (iPhone 14, portrait)
+Scaling            : Le canvas est redimensionne pour remplir la fenetre
+                     en conservant le ratio portrait (letterbox horizontal si necessaire).
 
 Sur Mac (navigateur) :
-  - Le jeu s'affiche centré dans la fenêtre
-  - Barres noires latérales si ratio différent
-  - Joysticks masqués, contrôles clavier/souris activés
+  - Canvas centre dans la fenetre du navigateur.
+  - Joysticks HTML masques, controles clavier/souris actives.
 
-Sur tablette :
-  - Scale FIT avec le même ratio portrait
+Sur mobile :
+  - Canvas plein ecran.
+  - Joystick et boutons HTML overlay actives.
+  - Pinch-to-zoom desactive via meta viewport.
 ```
 
 ---
 
-## 11. Pipeline de développement
+## 13. Pipeline de developpement
 
 ```
 Phase 1 — Fondations (MVP)
-  ├── Setup projet (Vite + Phaser + TypeScript)
-  ├── Scènes de base (Boot, Preload, Menu, Game)
-  ├── Player (Angel Monster) + mouvement + attaque
-  ├── Joystick virtuel
+  ├── Renderer 2D Canvas : grille, murs extrudes, Y-sort
+  ├── Atlas de tiles generes par script Python
+  ├── Angel Monster : mouvement, sprites front/back, attaque
+  ├── Joystick virtuel HTML (mobile) + clavier/souris (desktop)
   ├── 1 ennemi (Zombie Normal) avec IA basique
-  ├── Collision murs + tilemap niveau 1
-  ├── Système de vie (cœurs)
-  ├── Système de points
-  ├── AudioManager + musique menu + musique gameplay
+  ├── Collision murs + map JSON niveau 1
+  ├── Systeme de vie (coeurs)
+  ├── Systeme de points + sauvegarde localStorage
+  ├── AudioManager Web Audio + musique menu + musique gameplay
   └── SFX de base (attaque, zombie hit/death, pas)
 
-Phase 2 — Complet
-  ├── Menu amélioration + système de niveaux
+Phase 2 — Contenu et menus
+  ├── Menu principal + selection personnage
+  ├── Menu amelioration + systeme de niveaux 1-11
   ├── 4 types de zombies
   ├── Spawns surprise + SFX surprise
-  ├── Portes + boutons + SFX interactions
-  ├── Écrans mort / victoire + jingles
-  ├── Sauvegarde localStorage (+ prefs audio)
-  ├── Attaque spéciale niveau 11 + SFX électricité
-  ├── Crossfade musique contextuel (exploration/combat/boss)
+  ├── Portes + declencheurs + SFX interactions
+  ├── Ecrans mort / victoire + jingles
+  ├── Attaque speciale niveau 11 + SFX electricite
+  ├── Crossfade musical contextuel
   └── Options volume (musique / SFX / mute)
 
-Phase 3 — Contenu
-  ├── 10 maps complètes
+Phase 3 — Contenu complet
+  ├── 10 maps completes (JSON)
   ├── Personnages 2 et 3
   ├── Ambiance sonore par type de salle
-  └── Polish (animations, effets, sons additionnels)
+  ├── Polish animations, particules, effets visuels
+  └── PWA manifest pour installation mobile (optionnel)
 ```
