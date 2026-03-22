@@ -214,6 +214,81 @@ def gen_ground_carpet():
     return img
 
 
+def gen_ground_bathroom_tile():
+    """White/gray ceramic tiles with grout lines, some cracked."""
+    img = Image.new('RGBA', (T, T), (220, 220, 225))
+    d = ImageDraw.Draw(img)
+    tile_sz = T // 4
+    for ty in range(0, T, tile_sz):
+        for tx in range(0, T, tile_sz):
+            h = hashF(tx, ty, 500)
+            r = int(210 + h * 20)
+            col = (r, r + 1, r + 3)
+            d.rectangle([tx + 2, ty + 2, tx + tile_sz - 3, ty + tile_sz - 3], fill=col)
+            # Highlight top-left
+            d.line([(tx + 3, ty + 3), (tx + tile_sz - 4, ty + 3)], fill=(col[0] + 12, col[1] + 12, col[2] + 10), width=1)
+            d.line([(tx + 3, ty + 3), (tx + 3, ty + tile_sz - 4)], fill=(col[0] + 8, col[1] + 8, col[2] + 6), width=1)
+            # Shadow bottom-right
+            d.line([(tx + tile_sz - 3, ty + 4), (tx + tile_sz - 3, ty + tile_sz - 3)], fill=(col[0] - 10, col[1] - 10, col[2] - 8), width=1)
+            d.line([(tx + 4, ty + tile_sz - 3), (tx + tile_sz - 3, ty + tile_sz - 3)], fill=(col[0] - 8, col[1] - 8, col[2] - 6), width=1)
+    # Grout lines
+    for gy in range(0, T, tile_sz):
+        d.line([(0, gy), (T, gy)], fill=(170, 168, 162), width=2)
+        d.line([(0, gy + 1), (T, gy + 1)], fill=(185, 183, 178), width=1)
+    for gx in range(0, T, tile_sz):
+        d.line([(gx, 0), (gx, T)], fill=(170, 168, 162), width=2)
+        d.line([(gx + 1, 0), (gx + 1, T)], fill=(185, 183, 178), width=1)
+    # Cracks on some tiles
+    for i in range(3):
+        if hashF(i, 0, 510) > 0.4:
+            cx = hash_xy(i, 1, 510) % (T - 20) + 10
+            cy = hash_xy(i, 2, 510) % (T - 20) + 10
+            d.line([(cx - 12, cy - 8), (cx, cy + 2), (cx + 8, cy + 10)], fill=(140, 138, 130, 150), width=1)
+            d.line([(cx, cy + 2), (cx + 14, cy - 4)], fill=(150, 148, 142, 120), width=1)
+    # Stains
+    for i in range(2):
+        sx = hash_xy(i, 0, 520) % (T - 20) + 10
+        sy = hash_xy(i, 1, 520) % (T - 20) + 10
+        d.ellipse([sx - 6, sy - 4, sx + 6, sy + 4], fill=(195, 190, 182, 60))
+    return img
+
+
+def gen_ground_worn_carpet():
+    """Dark red/brown worn carpet with frayed edges."""
+    img = Image.new('RGBA', (T, T), (105, 42, 38))
+    d = ImageDraw.Draw(img)
+    # Texture fibers
+    for y in range(0, T, 3):
+        for x in range(0, T, 3):
+            h = hashF(x, y, 530)
+            r = int(90 + h * 35)
+            d.rectangle([x, y, x + 2, y + 2], fill=(r, int(r * 0.42), int(r * 0.38)))
+    # Worn spots (lighter patches)
+    for i in range(6):
+        wx = hash_xy(i, 0, 540) % (T - 30) + 15
+        wy = hash_xy(i, 1, 540) % (T - 30) + 15
+        wr = 8 + hash_xy(i, 2, 540) % 12
+        d.ellipse([wx - wr, wy - wr, wx + wr, wy + wr], fill=(120, 55, 48, 70))
+    # Darker stains
+    for i in range(3):
+        sx = hash_xy(i, 0, 550) % (T - 20) + 10
+        sy = hash_xy(i, 1, 550) % (T - 20) + 10
+        d.ellipse([sx - 10, sy - 6, sx + 10, sy + 6], fill=(70, 28, 24, 80))
+    # Frayed edges
+    for i in range(20):
+        ex = hash_xy(i, 0, 560) % T
+        d.line([(ex, 0), (ex + hash_xy(i, 1, 560) % 4 - 2, 3 + hash_xy(i, 2, 560) % 5)],
+               fill=(85, 35, 30, 100), width=1)
+        d.line([(ex, T - 1), (ex + hash_xy(i, 3, 560) % 4 - 2, T - 4 - hash_xy(i, 4, 560) % 5)],
+               fill=(85, 35, 30, 100), width=1)
+    # Subtle pattern (diamond shapes)
+    for py in range(16, T - 16, 32):
+        for px in range(16, T - 16, 32):
+            d.polygon([(px, py - 6), (px + 5, py), (px, py + 6), (px - 5, py)],
+                      fill=(115, 48, 42, 50))
+    return img
+
+
 def gen_ground_water():
     img = Image.new('RGBA', (T, T), (35, 115, 185))
     d = ImageDraw.Draw(img)
@@ -628,6 +703,449 @@ def draw_puddle(d, cx, cy):
     d.ellipse([cx - 3, cy - 2, cx + 5, cy + 1], fill=(255, 255, 255, 40))
 
 
+def draw_fallen_books(d, cx, cy):
+    """3-4 books scattered on floor, various colors."""
+    books = [
+        (cx - 18, cy - 8, 16, 22, (140, 45, 38)),
+        (cx + 4, cy - 12, 14, 20, (38, 65, 140)),
+        (cx - 6, cy + 4, 18, 14, (45, 110, 52)),
+        (cx + 10, cy + 2, 12, 18, (130, 95, 40)),
+    ]
+    for bx, by, bw, bh, col in books:
+        # Book shadow
+        d.rectangle([bx + 2, by + 2, bx + bw + 2, by + bh + 2], fill=(30, 25, 20, 60))
+        # Book cover
+        d.rectangle([bx, by, bx + bw, by + bh], fill=col)
+        # Spine line
+        d.line([(bx + 2, by), (bx + 2, by + bh)], fill=(col[0] - 25, col[1] - 20, col[2] - 18), width=2)
+        # Page edge
+        d.rectangle([bx + 3, by + 2, bx + bw - 2, by + bh - 2], fill=(225, 218, 195))
+        d.rectangle([bx + 3, by + 2, bx + bw - 2, by + bh - 2], outline=(col[0] - 15, col[1] - 12, col[2] - 10), width=1)
+    # One open book
+    d.polygon([(cx - 4, cy - 2), (cx - 18, cy - 10), (cx - 18, cy + 6)], fill=(220, 212, 190))
+    d.polygon([(cx - 4, cy - 2), (cx + 8, cy - 8), (cx + 8, cy + 8)], fill=(215, 208, 185))
+    d.line([(cx - 4, cy - 2), (cx - 4, cy + 8)], fill=(80, 60, 40), width=1)
+
+
+def draw_kitchen_utensils(d, cx, cy):
+    """Knife, spoon, broken plate scattered."""
+    # Broken plate
+    d.pieslice([cx - 20, cy - 12, cx + 4, cy + 12], 0, 270, fill=(210, 205, 195))
+    d.pieslice([cx - 20, cy - 12, cx + 4, cy + 12], 0, 270, outline=(150, 145, 135), width=2)
+    d.pieslice([cx - 16, cy - 8, cx, cy + 8], 0, 270, fill=(225, 220, 212))
+    # Plate shard nearby
+    d.polygon([(cx + 8, cy - 6), (cx + 16, cy - 2), (cx + 10, cy + 4)], fill=(205, 200, 190))
+    d.polygon([(cx + 8, cy - 6), (cx + 16, cy - 2), (cx + 10, cy + 4)], outline=(150, 145, 135), width=1)
+    # Knife
+    d.rectangle([cx + 12, cy + 6, cx + 14, cy + 22], fill=(110, 75, 45))  # handle
+    d.polygon([(cx + 11, cy + 4), (cx + 15, cy + 4), (cx + 13, cy - 10)], fill=(180, 185, 192))  # blade
+    d.line([(cx + 13, cy - 10), (cx + 13, cy + 4)], fill=(210, 215, 220), width=1)  # highlight
+    # Spoon
+    d.ellipse([cx - 10, cy + 10, cx - 2, cy + 18], fill=(170, 175, 182))
+    d.ellipse([cx - 8, cy + 12, cx - 4, cy + 16], fill=(190, 195, 200))
+    d.rectangle([cx - 7, cy + 18, cx - 5, cy + 30], fill=(160, 165, 172))
+
+
+def draw_broken_toys(d, cx, cy):
+    """Small doll, wooden blocks scattered."""
+    # Wooden block 1
+    d.rectangle([cx - 22, cy - 8, cx - 10, cy + 4], fill=(180, 140, 80))
+    d.rectangle([cx - 22, cy - 8, cx - 10, cy + 4], outline=(120, 90, 50), width=2)
+    d.text((cx - 19, cy - 6), "A", fill=(180, 50, 40))
+    # Wooden block 2 (tilted)
+    d.polygon([(cx + 8, cy - 12), (cx + 20, cy - 8), (cx + 16, cy + 4), (cx + 4, cy)],
+              fill=(80, 140, 180))
+    d.polygon([(cx + 8, cy - 12), (cx + 20, cy - 8), (cx + 16, cy + 4), (cx + 4, cy)],
+              outline=(50, 90, 120), width=2)
+    # Small doll body
+    d.ellipse([cx - 6, cy + 6, cx + 2, cy + 14], fill=(220, 180, 160))  # head
+    d.rectangle([cx - 5, cy + 14, cx + 1, cy + 26], fill=(180, 60, 70))  # dress
+    d.line([(cx - 8, cy + 18), (cx - 5, cy + 16)], fill=(220, 180, 160), width=2)  # arm
+    d.line([(cx + 1, cy + 16), (cx + 5, cy + 20)], fill=(220, 180, 160), width=2)  # arm
+    # Eyes
+    d.ellipse([cx - 4, cy + 8, cx - 2, cy + 10], fill=(30, 30, 30))
+    d.ellipse([cx, cy + 8, cx + 2, cy + 10], fill=(30, 30, 30))
+    # Broken arm detached
+    d.line([(cx + 10, cy + 14), (cx + 18, cy + 18)], fill=(220, 180, 160), width=2)
+
+
+def draw_broken_mirror(d, cx, cy):
+    """Shards of glass reflective."""
+    # Main large shard
+    d.polygon([(cx - 16, cy - 18), (cx + 8, cy - 14), (cx + 12, cy + 4), (cx - 4, cy + 10), (cx - 18, cy - 2)],
+              fill=(180, 195, 210, 140))
+    d.polygon([(cx - 16, cy - 18), (cx + 8, cy - 14), (cx + 12, cy + 4), (cx - 4, cy + 10), (cx - 18, cy - 2)],
+              outline=(140, 150, 165, 180), width=2)
+    # Reflection highlight
+    d.line([(cx - 10, cy - 12), (cx + 4, cy - 4)], fill=(240, 245, 255, 100), width=2)
+    d.line([(cx - 8, cy - 6), (cx + 2, cy + 2)], fill=(230, 235, 245, 80), width=1)
+    # Small shards
+    shards = [
+        [(cx + 14, cy - 8), (cx + 22, cy - 4), (cx + 18, cy + 2)],
+        [(cx - 8, cy + 12), (cx + 2, cy + 14), (cx - 2, cy + 22)],
+        [(cx + 6, cy + 8), (cx + 14, cy + 10), (cx + 10, cy + 18)],
+        [(cx - 22, cy + 4), (cx - 14, cy + 2), (cx - 16, cy + 12)],
+    ]
+    for shard in shards:
+        d.polygon(shard, fill=(175, 190, 205, 120))
+        d.polygon(shard, outline=(130, 140, 155, 150), width=1)
+    # Sparkle points
+    for i in range(3):
+        sx = cx - 10 + hash_xy(i, 0, 600) % 28
+        sy = cy - 10 + hash_xy(i, 1, 600) % 24
+        d.ellipse([sx - 2, sy - 2, sx + 2, sy + 2], fill=(255, 255, 255, 140))
+
+
+def draw_water_puddle(d, cx, cy):
+    """Blue-gray water puddle (different from existing puddle)."""
+    # Larger irregular shape
+    d.ellipse([cx - 22, cy - 12, cx + 18, cy + 10], fill=(55, 80, 110, 90))
+    d.ellipse([cx - 16, cy - 8, cx + 14, cy + 8], fill=(65, 95, 125, 80))
+    d.ellipse([cx + 4, cy - 2, cx + 24, cy + 14], fill=(50, 75, 105, 70))
+    # Ripples
+    d.arc([cx - 10, cy - 5, cx + 6, cy + 5], 0, 360, fill=(90, 120, 150, 50), width=1)
+    d.arc([cx - 6, cy - 3, cx + 2, cy + 3], 0, 360, fill=(100, 130, 160, 40), width=1)
+    # Reflections
+    d.ellipse([cx - 4, cy - 3, cx + 2, cy + 1], fill=(140, 165, 195, 50))
+    d.ellipse([cx + 8, cy + 2, cx + 14, cy + 6], fill=(130, 155, 185, 40))
+    # Edge darkening
+    d.arc([cx - 22, cy - 12, cx + 18, cy + 10], 0, 360, fill=(35, 55, 80, 40), width=2)
+
+
+# ==================== FURNITURE ====================
+
+def gen_furniture_bed():
+    """Top-down view of a broken bed with torn sheets (2x1 tile: 128x64)."""
+    # Actually 256x128 at T scale for 2x1 tiles, but we use 128x64 concept
+    # The atlas cell is 128 wide, so 2-tile = 256x128
+    w, h = T * 2, T
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.rounded_rectangle([6, 6, w - 4, h - 4], radius=4, fill=(0, 0, 0, 40))
+    # Bed frame (dark wood)
+    d.rounded_rectangle([2, 2, w - 6, h - 6], radius=6, fill=(85, 55, 32))
+    d.rounded_rectangle([2, 2, w - 6, h - 6], radius=6, outline=(50, 32, 18), width=3)
+    # Headboard (left side in top-down)
+    d.rectangle([2, 2, 24, h - 6], fill=(70, 42, 24))
+    d.rectangle([4, 4, 22, h - 8], fill=(90, 58, 35))
+    d.rectangle([2, 2, 24, h - 6], outline=(45, 28, 15), width=2)
+    # Mattress
+    d.rectangle([26, 8, w - 12, h - 12], fill=(180, 170, 155))
+    # Torn sheets (white with wrinkles)
+    d.rectangle([30, 12, w - 40, h - 16], fill=(210, 205, 195))
+    # Wrinkle lines
+    for i in range(5):
+        wy = 18 + i * (h - 40) // 5
+        d.line([(40, wy), (w - 50, wy + hash_xy(i, 0, 700) % 6 - 3)],
+               fill=(185, 180, 170), width=1)
+    # Pillow
+    d.rounded_rectangle([30, h // 2 - 18, 70, h // 2 + 18], radius=8, fill=(220, 215, 205))
+    d.rounded_rectangle([30, h // 2 - 18, 70, h // 2 + 18], radius=8, outline=(190, 185, 175), width=2)
+    # Blood stain on sheets
+    d.ellipse([w // 2, h // 2 - 10, w // 2 + 28, h // 2 + 8], fill=(130, 30, 25, 100))
+    # Torn edge
+    for i in range(8):
+        tx = w - 40 + hash_xy(i, 0, 710) % 20
+        ty = 14 + hash_xy(i, 1, 710) % (h - 32)
+        d.line([(w - 40, ty), (tx, ty + hash_xy(i, 2, 710) % 6 - 3)],
+               fill=(200, 195, 185), width=1)
+    return img
+
+
+def gen_furniture_long_table():
+    """Wooden table seen from above (2x1 tile)."""
+    w, h = T * 2, T
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.rounded_rectangle([6, 6, w - 2, h - 2], radius=3, fill=(0, 0, 0, 40))
+    # Table surface
+    base = (145, 105, 65)
+    d.rounded_rectangle([2, 4, w - 6, h - 6], radius=4, fill=base)
+    # Planks
+    plank_h = (h - 12) // 4
+    for py in range(6, h - 8, plank_h):
+        ph = hashF(0, py, 720)
+        col = (int(base[0] + ph * 18 - 8), int(base[1] + ph * 14 - 6), int(base[2] + ph * 10 - 4))
+        d.rectangle([4, py, w - 8, py + plank_h - 2], fill=col)
+        # Grain lines
+        for gx in range(8, w - 12, 6):
+            if hashF(gx, py, 730) > 0.55:
+                d.line([(gx, py + 2), (gx + 4 + hash_xy(gx, py, 740) % 8, py + 2)],
+                       fill=(col[0] - 12, col[1] - 10, col[2] - 8), width=1)
+    # Edge highlight
+    d.line([(4, 6), (w - 8, 6)], fill=(base[0] + 15, base[1] + 12, base[2] + 10), width=2)
+    # Edge shadow
+    d.line([(4, h - 8), (w - 8, h - 8)], fill=(base[0] - 20, base[1] - 18, base[2] - 14), width=2)
+    # Outline
+    d.rounded_rectangle([2, 4, w - 6, h - 6], radius=4, outline=(60, 40, 22), width=3)
+    # Scratches
+    for i in range(3):
+        sx = 20 + hash_xy(i, 0, 750) % (w - 50)
+        sy = 12 + hash_xy(i, 1, 750) % (h - 28)
+        d.line([(sx, sy), (sx + 15 + hash_xy(i, 2, 750) % 20, sy + hash_xy(i, 3, 750) % 6 - 3)],
+               fill=(base[0] - 15, base[1] - 12, base[2] - 10, 100), width=1)
+    return img
+
+
+def gen_furniture_bookshelf():
+    """Bookshelf obstacle, tall look (1x1 tile)."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.rectangle([4, 4, T - 2, T - 2], fill=(0, 0, 0, 40))
+    # Frame
+    frame_col = (72, 48, 28)
+    d.rectangle([0, 0, T - 4, T - 4], fill=frame_col)
+    d.rectangle([0, 0, T - 4, T - 4], outline=(42, 28, 15), width=3)
+    # Shelves (4 rows)
+    shelf_h = (T - 12) // 4
+    for sy in range(4, T - 8, shelf_h):
+        # Shelf plank
+        d.rectangle([4, sy + shelf_h - 3, T - 8, sy + shelf_h], fill=(60, 38, 20))
+        # Books on this shelf
+        bx = 6
+        while bx < T - 14:
+            bw = 6 + hash_xy(bx, sy, 760) % 10
+            bh = shelf_h - 8 + hash_xy(bx, sy, 770) % 6
+            colors = [(140, 42, 35), (35, 55, 130), (42, 105, 48), (130, 95, 35),
+                      (95, 35, 110), (35, 100, 110), (110, 55, 42)]
+            col = colors[hash_xy(bx, sy, 790) % len(colors)]
+            by = sy + shelf_h - 4 - bh
+            d.rectangle([bx, by, bx + bw, sy + shelf_h - 4], fill=col)
+            d.line([(bx + 1, by), (bx + 1, sy + shelf_h - 4)], fill=(col[0] + 15, col[1] + 12, col[2] + 10), width=1)
+            bx += bw + 2
+    # Top ornament line
+    d.rectangle([0, 0, T - 4, 5], fill=(58, 38, 20))
+    d.line([(1, 4), (T - 5, 4)], fill=(82, 58, 35), width=1)
+    return img
+
+
+def gen_furniture_bathtub():
+    """White bathtub with dark water inside (2x1 tile)."""
+    w, h = T * 2, T
+    img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.rounded_rectangle([6, 6, w - 2, h - 2], radius=12, fill=(0, 0, 0, 40))
+    # Outer tub (white porcelain)
+    d.rounded_rectangle([2, 2, w - 6, h - 6], radius=14, fill=(230, 228, 222))
+    d.rounded_rectangle([2, 2, w - 6, h - 6], radius=14, outline=(160, 158, 150), width=3)
+    # Rim highlight
+    d.rounded_rectangle([4, 4, w - 8, h - 8], radius=12, outline=(245, 242, 238), width=2)
+    # Inner tub
+    d.rounded_rectangle([14, 14, w - 18, h - 18], radius=10, fill=(45, 50, 58))
+    # Dark water inside
+    d.rounded_rectangle([16, 16, w - 20, h - 20], radius=8, fill=(35, 42, 55))
+    # Water surface details
+    for i in range(4):
+        rx = 30 + hash_xy(i, 0, 800) % (w - 70)
+        ry = 24 + hash_xy(i, 1, 800) % (h - 50)
+        d.ellipse([rx - 8, ry - 3, rx + 8, ry + 3], fill=(45, 55, 68, 80))
+    # Reflection on water
+    d.ellipse([w // 2 - 15, h // 2 - 8, w // 2 + 15, h // 2 + 4], fill=(60, 70, 85, 50))
+    # Blood in water
+    d.ellipse([w // 2 + 20, h // 2 - 4, w // 2 + 45, h // 2 + 8], fill=(80, 25, 22, 70))
+    # Faucet
+    d.rectangle([w - 30, h // 2 - 6, w - 20, h // 2 + 6], fill=(160, 162, 168))
+    d.ellipse([w - 26, h // 2 - 10, w - 18, h // 2 - 4], fill=(170, 172, 178))
+    # Claw feet visible at corners
+    for fx, fy in [(8, 8), (8, h - 12), (w - 14, 8), (w - 14, h - 12)]:
+        d.ellipse([fx, fy, fx + 6, fy + 6], fill=(160, 155, 145))
+    return img
+
+
+def gen_furniture_wardrobe():
+    """Dark wooden wardrobe (1x1 tile, hides the boss)."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.rectangle([4, 4, T - 1, T - 1], fill=(0, 0, 0, 45))
+    # Main body
+    base = (62, 42, 25)
+    d.rectangle([0, 0, T - 4, T - 4], fill=base)
+    # Two doors
+    door_w = (T - 12) // 2
+    for dx in [4, 6 + door_w]:
+        d.rectangle([dx, 4, dx + door_w, T - 8], fill=(72, 50, 30))
+        d.rectangle([dx, 4, dx + door_w, T - 8], outline=(45, 28, 15), width=2)
+        # Panel inset
+        d.rectangle([dx + 6, 10, dx + door_w - 6, T // 2 - 4], fill=(65, 44, 26))
+        d.rectangle([dx + 6, T // 2 + 4, dx + door_w - 6, T - 14], fill=(65, 44, 26))
+        # Handle
+        hx = dx + door_w - 10
+        hy = T // 2
+        d.ellipse([hx - 3, hy - 3, hx + 3, hy + 3], fill=(140, 135, 100))
+        d.ellipse([hx - 1, hy - 1, hx + 1, hy + 1], fill=(180, 175, 140))
+    # Top molding
+    d.rectangle([0, 0, T - 4, 5], fill=(52, 35, 20))
+    d.line([(1, 4), (T - 5, 4)], fill=(78, 55, 35), width=1)
+    # Bottom base
+    d.rectangle([0, T - 8, T - 4, T - 4], fill=(52, 35, 20))
+    # Outline
+    d.rectangle([0, 0, T - 4, T - 4], outline=(35, 22, 12), width=3)
+    # Mysterious glow from crack between doors
+    d.line([(T // 2 - 1, 8), (T // 2 - 1, T - 10)], fill=(120, 180, 80, 60), width=2)
+    return img
+
+
+def gen_furniture_fireplace():
+    """Stone fireplace/oven (1x1 tile)."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.rectangle([4, 4, T - 1, T - 1], fill=(0, 0, 0, 40))
+    # Stone body
+    d.rectangle([0, 0, T - 4, T - 4], fill=(125, 118, 108))
+    # Stone texture
+    stones = [
+        (2, 2, T // 2 - 4, T // 3 - 2), (T // 2 - 1, 2, T // 2 - 2, T // 3 - 2),
+        (2, T // 3, T // 3, T // 3), (T // 3 + 2, T // 3, T // 3, T // 3),
+        (T * 2 // 3 + 2, T // 3, T // 3 - 6, T // 3),
+    ]
+    for sx, sy, sw, sh in stones:
+        h = hashF(sx, sy, 810)
+        col = (int(115 + h * 22), int(108 + h * 20), int(98 + h * 18))
+        d.rectangle([sx, sy, sx + sw, sy + sh], fill=col)
+        d.rectangle([sx, sy, sx + sw, sy + sh], outline=(80, 75, 68), width=1)
+    # Firebox opening (dark)
+    fy = T // 2
+    fh = T // 2 - 10
+    d.rounded_rectangle([12, fy, T - 16, T - 8], radius=4, fill=(25, 20, 18))
+    # Embers glow
+    d.ellipse([T // 2 - 15, T - 22, T // 2 + 10, T - 12], fill=(120, 40, 20, 80))
+    d.ellipse([T // 2 - 8, T - 18, T // 2 + 4, T - 14], fill=(180, 70, 25, 60))
+    # Ash
+    for i in range(5):
+        ax = 16 + hash_xy(i, 0, 820) % (T - 40)
+        ay = fy + 8 + hash_xy(i, 1, 820) % (fh - 10)
+        d.ellipse([ax - 3, ay - 1, ax + 3, ay + 1], fill=(60, 55, 50, 80))
+    # Top mantle
+    d.rectangle([0, 0, T - 4, 8], fill=(108, 100, 90))
+    d.line([(1, 7), (T - 5, 7)], fill=(135, 128, 118), width=1)
+    # Outline
+    d.rectangle([0, 0, T - 4, T - 4], outline=(50, 45, 38), width=3)
+    return img
+
+
+def gen_furniture_cradle():
+    """Small broken baby cradle (1x1 tile)."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # Shadow
+    d.ellipse([10, T // 2 + 10, T - 10, T - 6], fill=(0, 0, 0, 35))
+    # Rockers (bottom curved pieces)
+    d.arc([8, T - 30, T - 12, T - 4], 0, 180, fill=(95, 65, 38), width=4)
+    # Cradle body
+    base = (120, 85, 52)
+    d.rounded_rectangle([14, 16, T - 18, T - 16], radius=6, fill=base)
+    d.rounded_rectangle([14, 16, T - 18, T - 16], radius=6, outline=(70, 48, 28), width=3)
+    # Inner
+    d.rounded_rectangle([20, 22, T - 24, T - 22], radius=4, fill=(160, 140, 115))
+    # Small blanket
+    d.rounded_rectangle([24, 30, T - 28, T - 26], radius=3, fill=(180, 175, 210))
+    d.line([(28, 50), (T - 32, 48)], fill=(160, 155, 190), width=1)
+    # Headboard (left side)
+    d.rectangle([14, 14, 20, T - 16], fill=(100, 68, 38))
+    d.rectangle([14, 8, 20, 16], fill=(90, 60, 32))
+    # Footboard (right) - broken, tilted
+    d.polygon([(T - 22, 18), (T - 16, 14), (T - 14, T - 18), (T - 20, T - 16)],
+              fill=(100, 68, 38))
+    # Crack in wood
+    d.line([(T // 2, 18), (T // 2 + 6, T // 2), (T // 2 - 2, T - 22)],
+           fill=(60, 40, 22, 150), width=2)
+    return img
+
+
+def gen_furniture_chandelier():
+    """Grand lustre suspendu vu de dessus — cercle dore avec bougies."""
+    img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = T // 2, T // 2
+    # Halo de lumiere chaud
+    for r in range(55, 10, -2):
+        a = max(0, 40 - r // 2)
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 180, 50, a))
+    # Cercle principal (metal dore)
+    d.ellipse([cx - 35, cy - 35, cx + 35, cy + 35], outline=(180, 150, 60), width=4)
+    d.ellipse([cx - 32, cy - 32, cx + 32, cy + 32], outline=(140, 115, 45), width=2)
+    # Cercle interieur
+    d.ellipse([cx - 18, cy - 18, cx + 18, cy + 18], outline=(160, 130, 50), width=3)
+    # Bras radiaux (8)
+    for i in range(8):
+        angle = i * math.pi / 4
+        x1 = cx + int(math.cos(angle) * 18)
+        y1 = cy + int(math.sin(angle) * 18)
+        x2 = cx + int(math.cos(angle) * 33)
+        y2 = cy + int(math.sin(angle) * 33)
+        d.line([(x1, y1), (x2, y2)], fill=(170, 140, 55), width=3)
+        # Bougie au bout
+        bx, by = cx + int(math.cos(angle) * 36), cy + int(math.sin(angle) * 36)
+        d.ellipse([bx - 5, by - 5, bx + 5, by + 5], fill=(220, 210, 185))
+        d.ellipse([bx - 5, by - 5, bx + 5, by + 5], outline=(160, 130, 50), width=1)
+        # Flamme
+        d.ellipse([bx - 3, by - 3, bx + 3, by + 3], fill=(255, 210, 80))
+        d.ellipse([bx - 1, by - 1, bx + 1, by + 1], fill=(255, 250, 200))
+    # Centre decoratif
+    d.ellipse([cx - 8, cy - 8, cx + 8, cy + 8], fill=(160, 130, 50))
+    d.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(190, 160, 70))
+    # Chaines (4 lignes vers le centre)
+    for i in range(4):
+        angle = i * math.pi / 2 + math.pi / 4
+        x1 = cx + int(math.cos(angle) * 6)
+        y1 = cy + int(math.sin(angle) * 6)
+        d.line([(cx, cy), (x1, y1)], fill=(120, 100, 40), width=2)
+    # Outline
+    d.ellipse([cx - 35, cy - 35, cx + 35, cy + 35], outline=(80, 65, 25), width=2)
+    return img
+
+
+def gen_furniture_grand_door():
+    """Grande porte d'entree massive du manoir — vue de dessus/face."""
+    img = Image.new('RGBA', (T * 2, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    w, h = T * 2, T
+    # Cadre en pierre
+    d.rectangle([0, 0, w - 1, h - 1], fill=(85, 75, 65))
+    d.rectangle([3, 3, w - 4, h - 4], fill=(95, 85, 72))
+    # Piliers lateraux
+    d.rectangle([0, 0, 18, h - 1], fill=(105, 92, 78))
+    d.rectangle([w - 19, 0, w - 1, h - 1], fill=(105, 92, 78))
+    d.line([(2, 0), (2, h)], fill=(120, 108, 92), width=2)
+    d.line([(w - 3, 0), (w - 3, h)], fill=(120, 108, 92), width=2)
+    d.rectangle([0, 0, 18, h - 1], outline=(50, 40, 30), width=2)
+    d.rectangle([w - 19, 0, w - 1, h - 1], outline=(50, 40, 30), width=2)
+    # Porte gauche
+    d.rectangle([20, 4, w // 2 - 3, h - 5], fill=(110, 72, 38))
+    for py in range(8, h - 8, 14):
+        d.line([(22, py), (w // 2 - 5, py)], fill=(88, 55, 28), width=1)
+    # Panneau decoratif
+    d.rectangle([30, 15, w // 2 - 12, h // 2 - 5], outline=(90, 58, 30), width=2)
+    d.rectangle([30, h // 2 + 5, w // 2 - 12, h - 18], outline=(90, 58, 30), width=2)
+    # Porte droite
+    d.rectangle([w // 2 + 2, 4, w - 21, h - 5], fill=(110, 72, 38))
+    for py in range(8, h - 8, 14):
+        d.line([(w // 2 + 4, py), (w - 23, py)], fill=(88, 55, 28), width=1)
+    d.rectangle([w // 2 + 12, 15, w - 31, h // 2 - 5], outline=(90, 58, 30), width=2)
+    d.rectangle([w // 2 + 12, h // 2 + 5, w - 31, h - 18], outline=(90, 58, 30), width=2)
+    # Poignees (anneaux dores)
+    for px in [w // 2 - 10, w // 2 + 10]:
+        d.ellipse([px - 6, h // 2 - 6, px + 6, h // 2 + 6], outline=(200, 180, 70), width=3)
+        d.ellipse([px - 2, h // 2 - 8, px + 2, h // 2 - 4], fill=(200, 180, 70))
+    # Arche au-dessus (decorative)
+    d.arc([25, -20, w - 26, 25], 0, 180, fill=(85, 70, 55), width=4)
+    # Ligne de separation
+    d.line([(w // 2, 4), (w // 2, h - 5)], fill=(50, 35, 22), width=3)
+    # Outline general
+    d.rectangle([0, 0, w - 1, h - 1], outline=(35, 28, 20), width=3)
+    # Clous decoratifs
+    for py in [12, h - 13]:
+        for px in [25, w - 26]:
+            d.ellipse([px - 3, py - 3, px + 3, py + 3], fill=(140, 130, 60))
+    return img
+
+
 # ==================== BUSH ====================
 
 def gen_bush():
@@ -668,11 +1186,11 @@ def make_atlas(tiles, cols=None):
 def main():
     os.makedirs(OUTPUT, exist_ok=True)
 
-    print("Generating ground atlas (7 tiles)...")
+    print("Generating ground atlas (9 tiles)...")
     grounds = [
         gen_ground_grass(), gen_ground_stone(), gen_ground_dirt(),
         gen_ground_gravel(), gen_ground_wood(), gen_ground_carpet(),
-        gen_ground_water(),
+        gen_ground_water(), gen_ground_bathroom_tile(), gen_ground_worn_carpet(),
     ]
     make_atlas(grounds).save(os.path.join(OUTPUT, "ground-atlas.png"))
     print(f"  ground-atlas.png ({len(grounds)} tiles, {T}x{T} each)")
@@ -702,15 +1220,47 @@ def main():
     make_atlas(doors).save(os.path.join(OUTPUT, "door-atlas.png"))
     print(f"  door-atlas.png ({len(doors)} variants)")
 
-    print("Generating decoration atlas (10 types)...")
+    print("Generating decoration atlas (15 types)...")
     decos = [
         gen_deco(draw_bones), gen_deco(draw_skull), gen_deco(draw_crack),
         gen_deco(draw_web), gen_deco(draw_blood), gen_deco(draw_pebbles),
         gen_deco(draw_grass_tuft), gen_deco(draw_mushroom), gen_deco(draw_torch),
         gen_deco(draw_puddle),
+        gen_deco(draw_fallen_books), gen_deco(draw_kitchen_utensils),
+        gen_deco(draw_broken_toys), gen_deco(draw_broken_mirror),
+        gen_deco(draw_water_puddle),
     ]
     make_atlas(decos).save(os.path.join(OUTPUT, "deco-atlas.png"))
     print(f"  deco-atlas.png ({len(decos)} types)")
+
+    print("Generating furniture atlas (7 items)...")
+    furniture = [
+        gen_furniture_bed(),         # 0: 2x1 (256x128)
+        gen_furniture_long_table(),  # 1: 2x1 (256x128)
+        gen_furniture_bookshelf(),   # 2: 1x1 (128x128)
+        gen_furniture_bathtub(),     # 3: 2x1 (256x128)
+        gen_furniture_wardrobe(),    # 4: 1x1 (128x128)
+        gen_furniture_fireplace(),   # 5: 1x1 (128x128)
+        gen_furniture_cradle(),      # 6: 1x1 (128x128)
+        gen_furniture_chandelier(),  # 7: 1x1 (128x128)
+        gen_furniture_grand_door(),  # 8: 2x1 (256x128)
+    ]
+    # Custom atlas: each item gets its own row, max width = 256
+    max_w = max(f.size[0] for f in furniture)
+    total_h = sum(f.size[1] for f in furniture)
+    furn_atlas = Image.new('RGBA', (max_w, total_h), (0, 0, 0, 0))
+    y_off = 0
+    for f in furniture:
+        furn_atlas.paste(f, (0, y_off), f)
+        y_off += f.size[1]
+    furn_atlas.save(os.path.join(OUTPUT, "furniture-atlas.png"))
+    print(f"  furniture-atlas.png ({len(furniture)} items, {max_w}x{total_h})")
+
+    # Also save individual furniture PNGs for easier sprite loading
+    furn_names = ['bed', 'long_table', 'bookshelf', 'bathtub', 'wardrobe', 'fireplace', 'cradle', 'chandelier', 'grand_door']
+    for name, fimg in zip(furn_names, furniture):
+        fimg.save(os.path.join(OUTPUT, f"furniture-{name}.png"))
+        print(f"  furniture-{name}.png ({fimg.size[0]}x{fimg.size[1]})")
 
     print("Generating bush...")
     gen_bush().save(os.path.join(OUTPUT, "bush.png"))

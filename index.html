@@ -106,88 +106,30 @@
 import * as THREE from 'three';
 
 // ==================== CONFIG ====================
-const TILE = 1; // 1 world unit = 1 tile in 3D
-const TILE_PX = 40; // original pixel size (used for speed calc)
-const COLS = 28, ROWS = 22;
-const PLAYER_SPEED = 160 / TILE_PX; // tiles per second
-const WALL_EXT = 14;
+const TILE_PX = 40;
+const PLAYER_SPEED = 160 / TILE_PX;
 
-// Tile types
+// Tile types (internal)
 const GND=0, WALL=1, WDEST=2, BUSH=3, WATER=4,
-      CARPET=5, STONE=6, DIRT=7, GRAVEL=8, WOOD=9, DOOR=10;
+      CARPET=5, STONE=6, DIRT=7, GRAVEL=8, WOOD=9, DOOR=10,
+      BATHROOM=11, WORN_CARPET=12, FURNITURE=13;
 
 const DECO_NONE=-1, DECO_BONES=0, DECO_SKULL=1, DECO_CRACK=2, DECO_WEB=3,
-      DECO_PUDDLE=4, DECO_PEBBLES=5, DECO_BLOOD=6, DECO_GRASS_TUFT=7,
-      DECO_MUSHROOM=8, DECO_TORCH=9;
+      DECO_BLOOD=4, DECO_PEBBLES=5, DECO_GRASS_TUFT=6, DECO_MUSHROOM=7,
+      DECO_TORCH=8, DECO_PUDDLE=9,
+      DECO_FALLEN_BOOKS=10, DECO_KITCHEN_UTENSILS=11, DECO_BROKEN_TOYS=12,
+      DECO_BROKEN_MIRROR=13, DECO_WATER_PUDDLE=14;
 
-// ==================== MAP ====================
-const MAP=[], DECO=[];
-for(let r=0;r<ROWS;r++){MAP[r]=new Array(COLS).fill(GND);DECO[r]=new Array(COLS).fill(DECO_NONE);}
+// Map dimensions (set after JSON load)
+let COLS = 40, ROWS = 32;
 
-function fill(r1,c1,r2,c2,t){for(let r=r1;r<=r2;r++)for(let c=c1;c<=c2;c++)MAP[r][c]=t;}
-function wRow(r,c1,c2){fill(r,c1,r,c2,WALL);}
-function wCol(c,r1,r2){fill(r1,c,r2,c,WALL);}
-
-fill(0,0,ROWS-1,COLS-1,GND);
-fill(0,12,2,15,GRAVEL);
-fill(3,7,10,20,WOOD);
-fill(5,10,8,17,CARPET);
-fill(12,1,ROWS-2,10,STONE);
-fill(12,12,ROWS-2,COLS-2,DIRT);
-fill(14,14,15,15,WATER);
-
-wRow(3,7,11); wRow(3,16,20);
-MAP[3][12]=DOOR; MAP[3][13]=GND; MAP[3][14]=GND; MAP[3][15]=DOOR;
-wRow(10,7,11); MAP[10][12]=DOOR; wRow(10,13,14); MAP[10][15]=DOOR; wRow(10,16,20);
-wCol(7,4,9); wCol(20,4,9);
-
-wRow(11,0,COLS-1);
-MAP[11][5]=DOOR; MAP[11][6]=DOOR;
-MAP[11][14]=DOOR; MAP[11][15]=DOOR;
-wRow(ROWS-1,0,COLS-1);
-wCol(0,12,ROWS-2); wCol(COLS-1,12,ROWS-2);
-wCol(11,12,ROWS-2);
-MAP[15][11]=DOOR; MAP[16][11]=DOOR;
-
-wRow(15,1,4); wRow(15,7,10);
-wCol(5,12,14);
-fill(13,22,14,22,WALL); fill(17,22,18,22,WALL);
-wRow(17,13,17); MAP[17][15]=DOOR;
-
-const destPos=[[4,9],[4,18],[6,7],[6,20],[8,9],[8,18],
-  [13,3],[13,8],[13,14],[13,19],[16,3],[16,8],
-  [19,2],[19,5],[19,8],[19,14],[19,18],[19,22],[19,25]];
-destPos.forEach(([r,c])=>{if(r<ROWS&&c<COLS&&(MAP[r][c]===GND||MAP[r][c]===STONE||MAP[r][c]===DIRT))MAP[r][c]=WDEST;});
-
-const bushPos=[[1,1],[1,2],[2,1],[1,5],[1,6],[2,5],
-  [1,19],[1,20],[2,19],[1,24],[1,25],[2,25],
-  [1,8],[1,9],[2,8],[1,22],[1,23],[2,23],
-  [4,1],[4,2],[5,1],[5,2],[4,24],[4,25],[5,24],[5,25],
-  [8,1],[8,2],[9,1],[8,24],[8,25],[9,25],
-  [0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],
-  [0,8],[0,9],[0,10],[0,11],[0,16],[0,17],[0,18],[0,19],
-  [0,20],[0,21],[0,22],[0,23],[0,24],[0,25],[0,26],[0,27],
-  [1,0],[2,0],[3,0],[3,1],[3,2],[3,3],[3,4],[3,5],[3,6],
-  [1,27],[2,27],[3,27],[3,26],[3,25],[3,24],[3,23],[3,22],[3,21],
-  [10,1],[10,2],[10,3],[10,4],[10,5],[10,22],[10,23],[10,24],[10,25],[10,26],
-  [12,24],[12,25],[12,26],[13,25],[13,26]];
-bushPos.forEach(([r,c])=>{if(r<ROWS&&c<COLS&&(MAP[r][c]===GND||MAP[r][c]===GRAVEL))MAP[r][c]=BUSH;});
-
-function placeDeco(r,c,d){if(r>=0&&r<ROWS&&c>=0&&c<COLS&&DECO[r][c]===DECO_NONE)DECO[r][c]=d;}
-placeDeco(13,2,DECO_BONES);placeDeco(14,6,DECO_SKULL);placeDeco(16,9,DECO_BONES);
-placeDeco(18,3,DECO_SKULL);placeDeco(19,7,DECO_BONES);placeDeco(14,18,DECO_SKULL);
-placeDeco(16,20,DECO_BONES);placeDeco(18,16,DECO_SKULL);placeDeco(19,24,DECO_BONES);
-placeDeco(12,3,DECO_CRACK);placeDeco(14,9,DECO_CRACK);placeDeco(16,15,DECO_CRACK);
-placeDeco(18,20,DECO_CRACK);
-placeDeco(13,6,DECO_BLOOD);placeDeco(15,19,DECO_BLOOD);placeDeco(17,4,DECO_BLOOD);
-placeDeco(1,11,DECO_PEBBLES);placeDeco(2,16,DECO_PEBBLES);placeDeco(2,10,DECO_PEBBLES);
-placeDeco(9,3,DECO_PEBBLES);placeDeco(9,24,DECO_PEBBLES);
-placeDeco(1,4,DECO_GRASS_TUFT);placeDeco(2,7,DECO_GRASS_TUFT);placeDeco(1,18,DECO_GRASS_TUFT);
-placeDeco(2,22,DECO_GRASS_TUFT);placeDeco(5,3,DECO_GRASS_TUFT);placeDeco(7,3,DECO_GRASS_TUFT);
-placeDeco(3,3,DECO_MUSHROOM);placeDeco(9,2,DECO_MUSHROOM);placeDeco(1,21,DECO_MUSHROOM);
-placeDeco(12,1,DECO_WEB);placeDeco(12,10,DECO_WEB);placeDeco(12,COLS-2,DECO_WEB);
-placeDeco(5,8,DECO_TORCH);placeDeco(5,19,DECO_TORCH);placeDeco(8,8,DECO_TORCH);placeDeco(8,19,DECO_TORCH);
-placeDeco(13,1,DECO_TORCH);placeDeco(13,10,DECO_TORCH);placeDeco(13,12,DECO_TORCH);placeDeco(13,COLS-2,DECO_TORCH);
+// ==================== MAP (populated from JSON) ====================
+let MAP=[], DECO=[];
+let furnitureList = [];
+let surpriseSpawns = [];
+let bossSpawn = null;
+let triggeredSurprises = new Set();
+let bossTriggered = false;
 
 // ==================== SEEDED RANDOM ====================
 function hash(r,c,s){let h=(r*374761393+c*668265263+(s||0)*1274126177)^0x5bd1e995;h=Math.imul(h^(h>>>15),0x27d4eb2d);return(h^(h>>>13))>>>0;}
@@ -196,7 +138,7 @@ function hashF(r,c,s){return hash(r,c,s)/4294967296;}
 // ==================== GAME STATE ====================
 const state = {
   player: {
-    x: 14 + 0.5, y: 7 + 0.5, // tile coords
+    x: 20 + 0.5, y: 14 + 0.5,
     hp: 6, maxHp: 6,
     name: 'Angel',
     frame: 0, animTimer: 0,
@@ -214,15 +156,14 @@ const state = {
   dmgNumbers: [],
   gameTime: 0,
   mapVersion: 0,
-  gameState: 'playing', // 'playing','victory','gameover'
+  gameState: 'loading',
 };
 
-// Spawn zombies (in tile coords)
-function spawnZ(c,r,hp,spd,col,name){
-  state.zombies.push({
+function spawnZ(c,r,hp,spd,col,name,isBoss){
+  const z = {
     x: c+0.5, y: r+0.5,
     hp, maxHp: hp,
-    speed: spd / TILE_PX, // tiles/sec
+    speed: spd / TILE_PX,
     color: col, name,
     frame: 0, animTimer: 0,
     bobTimer: Math.random()*6.28, bobY: 0,
@@ -230,18 +171,139 @@ function spawnZ(c,r,hp,spd,col,name){
     facingDx: 0, facingDy: 1,
     angle: 0,
     moving: false,
-  });
+    isBoss: !!isBoss,
+  };
+  state.zombies.push(z);
+  return z;
 }
-spawnZ(3,2,1,35,'#5a8f3c','Zombie');spawnZ(24,2,1,35,'#5a8f3c','Zombie');
-spawnZ(3,9,1,35,'#5a8f3c','Zombie');spawnZ(24,9,1,35,'#5a8f3c','Zombie');
-spawnZ(9,5,2,45,'#7a6a2a','Z.Moyen');spawnZ(18,5,2,45,'#7a6a2a','Z.Moyen');
-spawnZ(9,8,2,45,'#7a6a2a','Z.Moyen');spawnZ(18,8,2,45,'#7a6a2a','Z.Moyen');
-spawnZ(3,14,1,38,'#5a8f3c','Zombie');spawnZ(8,17,1,38,'#5a8f3c','Zombie');
-spawnZ(15,14,2,50,'#7a6a2a','Z.Moyen');spawnZ(20,17,2,50,'#7a6a2a','Z.Moyen');
-spawnZ(25,15,3,60,'#8b2020','Z.Rage');spawnZ(3,19,3,60,'#8b2020','Z.Rage');
-// Boss
-spawnZ(14,16,10,30,'#4a1a4a','BOSS');
-state.zombies[state.zombies.length-1].isBoss=true;
+
+// ==================== MAP LOADING FROM JSON ====================
+const groundNameToId = {
+  'grass':GND, 'stone':STONE, 'dirt':DIRT, 'gravel':GRAVEL,
+  'wood_light':WOOD, 'carpet':CARPET, 'water':WATER, 'door':DOOR,
+  'bathroom_tile':BATHROOM, 'worn_carpet':WORN_CARPET,
+};
+const groundJsonToInternal = [GND, STONE, DIRT, GRAVEL, WOOD, CARPET, WATER, DOOR, BATHROOM, WORN_CARPET];
+
+const decoNameToId = {
+  'bones':DECO_BONES, 'skull':DECO_SKULL, 'crack':DECO_CRACK, 'web':DECO_WEB,
+  'blood':DECO_BLOOD, 'pebbles':DECO_PEBBLES, 'grass_tuft':DECO_GRASS_TUFT,
+  'mushroom':DECO_MUSHROOM, 'torch':DECO_TORCH, 'puddle':DECO_PUDDLE,
+  'fallen_books':DECO_FALLEN_BOOKS, 'kitchen_utensils':DECO_KITCHEN_UTENSILS,
+  'broken_toys':DECO_BROKEN_TOYS, 'broken_mirror':DECO_BROKEN_MIRROR,
+  'water_puddle':DECO_WATER_PUDDLE,
+};
+
+async function loadMapJSON(url) {
+  const resp = await fetch(url);
+  const json = await resp.json();
+
+  COLS = json.cols;
+  ROWS = json.rows;
+
+  // Init arrays
+  MAP.length = 0;
+  DECO.length = 0;
+  for(let r=0; r<ROWS; r++){
+    MAP[r] = new Array(COLS).fill(GND);
+    DECO[r] = new Array(COLS).fill(DECO_NONE);
+  }
+
+  // Ground
+  for(let r=0; r<ROWS; r++){
+    for(let c=0; c<COLS; c++){
+      const v = json.ground[r][c];
+      MAP[r][c] = groundJsonToInternal[v] ?? GND;
+    }
+  }
+
+  // Walls — support both formats: [r,c] pairs or {type:'row',...} objects
+  if(json.walls){
+    for(const w of (json.walls.indestructible||[])){
+      if(Array.isArray(w)){
+        const [r,c] = w;
+        if(r<ROWS && c<COLS) MAP[r][c] = WALL;
+      } else if(w.type==='row'){
+        for(let c=w.c1; c<=w.c2; c++) MAP[w.r][c] = WALL;
+      } else if(w.type==='col'){
+        for(let r=w.r1; r<=w.r2; r++) MAP[r][w.c] = WALL;
+      }
+    }
+    for(const w of (json.walls.destructible||[])){
+      const [r,c] = Array.isArray(w) ? w : [w.r, w.c];
+      if(r<ROWS && c<COLS) MAP[r][c] = WDEST;
+    }
+  }
+
+  // Doors (override wall to DOOR)
+  for(const [r,c] of (json.doors||[])){
+    if(r<ROWS && c<COLS) MAP[r][c] = DOOR;
+  }
+
+  // Bushes — support both 'bushes' and 'bushPositions' keys
+  const bushData = json.bushes || json.bushPositions || [];
+  for(const [r,c] of bushData){
+    if(r<ROWS && c<COLS && (MAP[r][c]===GND || MAP[r][c]===GRAVEL)) MAP[r][c] = BUSH;
+  }
+
+  // Furniture -> mark tiles as FURNITURE for collision
+  furnitureList = [];
+  for(const f of (json.furniture||[])){
+    const fw = f.w || 1, fh = f.h || 1;
+    furnitureList.push({type: f.type, r: f.r, c: f.c, w: fw, h: fh});
+    for(let dr=0; dr<fh; dr++){
+      for(let dc=0; dc<fw; dc++){
+        const rr = f.r+dr, cc = f.c+dc;
+        if(rr<ROWS && cc<COLS) MAP[rr][cc] = FURNITURE;
+      }
+    }
+  }
+
+  // Decorations
+  for(const dec of (json.decorations||[])){
+    const did = decoNameToId[dec.type];
+    if(did !== undefined && dec.r<ROWS && dec.c<COLS){
+      DECO[dec.r][dec.c] = did;
+    }
+  }
+
+  // Spawns
+  if(json.spawns){
+    const sp = json.spawns;
+    if(sp.player){
+      state.player.x = sp.player.col + 0.5;
+      state.player.y = sp.player.row + 0.5;
+    }
+    for(const z of (sp.zombies||[])){
+      const t = z.type || 'normal';
+      if(t==='normal') spawnZ(z.col, z.row, 1, 38, '#5a8f3c', 'Zombie');
+      else if(t==='medium') spawnZ(z.col, z.row, 2, 48, '#7a6a2a', 'Z.Moyen');
+      else if(t==='rage') spawnZ(z.col, z.row, 3, 60, '#8b2020', 'Z.Rage');
+    }
+    // Surprise spawns (deferred)
+    surpriseSpawns = (sp.surprises || []).map(s => {
+      const trig = s.trigger || {};
+      return {
+        col: s.col, row: s.row,
+        triggerCol: trig.col ?? s.triggerCol,
+        triggerRow: trig.row ?? s.triggerRow,
+        radius: trig.radius ?? s.radius ?? 3,
+        triggered: false,
+      };
+    });
+    // Boss
+    if(sp.boss){
+      const trigger = sp.boss.trigger || {};
+      bossSpawn = {
+        col: sp.boss.col, row: sp.boss.row,
+        wardrobeCol: trigger.c ?? sp.boss.wardrobeCol,
+        wardrobeRow: trigger.r ?? sp.boss.wardrobeRow,
+      };
+    }
+  }
+
+  return json;
+}
 
 // ==================== INPUT ====================
 const keys = {};
@@ -307,9 +369,37 @@ function getMove(){
 
 // ==================== SHOOTING ====================
 let lastShot = 0;
+function tryOpenDoor(){
+  // Check if player is near a closed door — open it
+  const p = state.player;
+  if(!renderer3d || !renderer3d.doorMeshes) return false;
+  for(const dg of renderer3d.doorMeshes){
+    const dd = dg.userData;
+    if(dd.isOpen) continue;
+    const dist = Math.hypot(p.x - (dd.c + 0.5), p.y - (dd.r + 0.5));
+    if(dist < 1.8){
+      // Open the door
+      dd.isOpen = true;
+      MAP[dd.r][dd.c] = DOOR; // make walkable again
+      // Animate: rotate the door pivot
+      const pivot = dd.doorPivot;
+      if(pivot){
+        pivot.rotation.y = dd.isHoriz ? -Math.PI / 2 : -Math.PI / 2;
+      }
+      // SFX door creak
+      playSFX(80, 0.3, 'sawtooth');
+      setTimeout(() => playSFX(60, 0.2, 'sine'), 100);
+      return true;
+    }
+  }
+  return false;
+}
+
 function tryShoot(){
   const now = performance.now();
   if(now - lastShot < 250) return;
+  // Try to open a door first
+  if(tryOpenDoor()) { lastShot = now; return; }
   lastShot = now;
   const p = state.player;
   let closest = null, minD = Infinity;
@@ -340,7 +430,7 @@ function walkable(px, py, rad){
     const c = Math.floor(px+ox), row = Math.floor(py+oy);
     if(row<0||row>=ROWS||c<0||c>=COLS) return false;
     const t = MAP[row][c];
-    if(t===WALL||t===WDEST||t===WATER) return false;
+    if(t===WALL||t===WDEST||t===WATER||t===FURNITURE) return false;
   }
   return true;
 }
@@ -372,6 +462,8 @@ function sfxZombieDie(){playSFX(150,0.3,'sawtooth');playSFX(100,0.4,'sine');}
 function sfxPlayerHit(){playSFX(120,0.2,'square');playSFX(80,0.3,'sine');}
 function sfxVictory(){playSFX(523,0.15,'sine');setTimeout(()=>playSFX(659,0.15,'sine'),150);setTimeout(()=>playSFX(784,0.3,'sine'),300);}
 function sfxGameOver(){playSFX(200,0.3,'sine');setTimeout(()=>playSFX(150,0.3,'sine'),200);setTimeout(()=>playSFX(100,0.5,'sine'),400);}
+function sfxRoar(){playSFX(80,0.5,'sawtooth');playSFX(60,0.6,'square');setTimeout(()=>playSFX(50,0.4,'sawtooth'),200);}
+function sfxSurprise(){playSFX(300,0.15,'square');playSFX(400,0.12,'sine');}
 ['mousedown','touchstart','keydown'].forEach(ev=>window.addEventListener(ev,initAudio,{once:false}));
 
 // ==================== UPDATE ====================
@@ -402,6 +494,34 @@ function update(dt){
   p.bobY = p.moving ? Math.sin(p.bobTimer)*3/TILE_PX : Math.sin(p.bobTimer*2)*1.5/TILE_PX;
   p.animTimer += dt;
   if(p.animTimer > 150){ p.animTimer=0; p.frame=(p.frame+1)%(p.moving?6:4); }
+
+  // ---- Surprise trigger zones ----
+  for(const s of surpriseSpawns){
+    if(s.triggered) continue;
+    const dx2 = p.x - (s.triggerCol+0.5), dy2 = p.y - (s.triggerRow+0.5);
+    if(Math.hypot(dx2,dy2) < s.radius){
+      s.triggered = true;
+      triggeredSurprises.add(s);
+      const sz = spawnZ(s.col, s.row, 1, 42, '#5a8f3c', 'Zombie');
+      sfxSurprise();
+      spawnParts(s.col+0.5, s.row+0.5, 0x88ff44, 12);
+      if(renderer3d && renderer3d._addZombieMesh) renderer3d._addZombieMesh(sz);
+    }
+  }
+
+  // ---- Boss trigger: wardrobe destroyed ----
+  if(bossSpawn && !bossTriggered){
+    const wr = bossSpawn.wardrobeRow, wc = bossSpawn.wardrobeCol;
+    // Check if the wardrobe furniture tile was destroyed (shot turns FURNITURE->GND via WDEST path)
+    // We mark wardrobe tiles as WDEST so they can be shot
+    if(MAP[wr][wc] !== FURNITURE && MAP[wr][wc] !== WDEST){
+      bossTriggered = true;
+      const bz = spawnZ(bossSpawn.col, bossSpawn.row, 10, 30, '#4a1a4a', 'BOSS', true);
+      sfxRoar();
+      spawnParts(bossSpawn.col+0.5, bossSpawn.row+0.5, 0xff4444, 16);
+      if(renderer3d && renderer3d._addZombieMesh) renderer3d._addZombieMesh(bz);
+    }
+  }
 
   for(const z of state.zombies){
     if(z.hp<=0) continue;
@@ -451,6 +571,27 @@ function update(dt){
       state.mapVersion++;
       state.projectiles.splice(i,1);
       spawnWallBreak(proj.x, proj.y);
+      continue;
+    }
+    if(MAP[tr][tc]===FURNITURE){
+      // Check if this is the wardrobe (boss trigger) - make it destructible
+      let isWardrobe = false;
+      if(bossSpawn && !bossTriggered){
+        const wr = bossSpawn.wardrobeRow, wc = bossSpawn.wardrobeCol;
+        if(tr===wr && tc===wc) isWardrobe = true;
+      }
+      if(isWardrobe){
+        MAP[tr][tc]=GND;
+        state.mapVersion++;
+        state.projectiles.splice(i,1);
+        spawnWallBreak(proj.x, proj.y);
+        // Remove from furnitureList
+        furnitureList = furnitureList.filter(f => !(f.r===tr && f.c===tc));
+        continue;
+      }
+      // Non-wardrobe furniture blocks projectiles
+      state.projectiles.splice(i,1);
+      spawnParts(proj.x, proj.y, 0x44ddff, 4);
       continue;
     }
     let hit=false;
@@ -537,12 +678,12 @@ class ThreeRenderer {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x1a3a10);
-    this.scene.fog = new THREE.Fog(0x1a3a10, 20, 45);
+    this.scene.fog = new THREE.Fog(0x1a3a10, 22, 50);
 
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
     this.camTarget = new THREE.Vector3();
-    this.camera.position.set(14, 12, 7+10);
-    this.camera.lookAt(14, 0, 7);
+    this.camera.position.set(20, 12, 14+10);
+    this.camera.lookAt(20, 0, 14);
 
     // Lighting
     const amb = new THREE.AmbientLight(0xffffff, 0.6);
@@ -586,6 +727,9 @@ class ThreeRenderer {
     // Bush meshes
     this.bushMeshes = [];
 
+    // Furniture meshes
+    this.furnitureMeshes = [];
+
     this._buildScene();
 
     window.addEventListener('resize', ()=>{
@@ -600,25 +744,31 @@ class ThreeRenderer {
     this._buildWalls();
     this._buildBushes();
     this._buildWater();
+    this._buildFurniture();
     this._buildTorchLights();
     this.playerMesh = this._buildPlayer();
     this.scene.add(this.playerMesh.group);
-    // player shadow
     this.playerShadow = this._makeShadow();
     this.scene.add(this.playerShadow);
-    // player halo
     this.playerHalo = this._makeHalo(0x44cc44);
     this.scene.add(this.playerHalo);
-    // zombies
     for(const z of state.zombies){
-      const zm = this._buildZombie(z);
-      this.scene.add(zm.group);
-      const sh = this._makeShadow();
-      this.scene.add(sh);
-      const hl = this._makeHalo(0xcc3333);
-      this.scene.add(hl);
-      this.zombieMeshes.push({group: zm.group, parts: zm, shadow: sh, halo: hl, zRef: z});
+      this._addZombieMeshInternal(z);
     }
+  }
+
+  _addZombieMeshInternal(z){
+    const zm = this._buildZombie(z);
+    this.scene.add(zm.group);
+    const sh = this._makeShadow();
+    this.scene.add(sh);
+    const hl = this._makeHalo(0xcc3333);
+    this.scene.add(hl);
+    this.zombieMeshes.push({group: zm.group, parts: zm, shadow: sh, halo: hl, zRef: z});
+  }
+
+  _addZombieMesh(z){
+    this._addZombieMeshInternal(z);
   }
 
   // ---- Ground (from HQ atlas textures) ----
@@ -636,16 +786,19 @@ class ThreeRenderer {
     let atlasLoaded = 0;
     const AT = 128; // atlas tile size
 
-    // Tile type to atlas index: grass=0, stone=1, dirt=2, gravel=3, wood=4, carpet=5, water=6
+    // Tile type to atlas index: grass=0, stone=1, dirt=2, gravel=3, wood=4, carpet=5, water=6, bathroom=7, worn_carpet=8
     const typeToAtlas = {
       [GND]: 0, [BUSH]: 0, [STONE]: 1, [DIRT]: 2, [GRAVEL]: 3,
       [WOOD]: 4, [CARPET]: 5, [WATER]: 6, [DOOR]: -1,
-      [WALL]: 0, [WDEST]: 0, // under walls = grass
+      [WALL]: 0, [WDEST]: 0,
+      [BATHROOM]: 7, [WORN_CARPET]: 8,
+      [FURNITURE]: 4, // furniture on wood by default
     };
-    // Door variant: 0=arch, 1=wood, 2=grate
     const decoTypeToAtlas = {
       'bones':0, 'skull':1, 'crack':2, 'web':3, 'blood':4,
-      'pebbles':5, 'grass_tuft':6, 'mushroom':7, 'torch':8, 'puddle':9
+      'pebbles':5, 'grass_tuft':6, 'mushroom':7, 'torch':8, 'puddle':9,
+      'fallen_books':10, 'kitchen_utensils':11, 'broken_toys':12,
+      'broken_mirror':13, 'water_puddle':14,
     };
 
     const onAtlasLoad = () => {
@@ -674,7 +827,7 @@ class ThreeRenderer {
         for(let c=0; c<COLS; c++){
           const d = DECO[r][c];
           if(d === DECO_NONE) continue;
-          const decoNames = ['bones','skull','crack','web','blood','pebbles','grass_tuft','mushroom','torch','puddle'];
+          const decoNames = ['bones','skull','crack','web','blood','pebbles','grass_tuft','mushroom','torch','puddle','fallen_books','kitchen_utensils','broken_toys','broken_mirror','water_puddle'];
           const name = decoNames[d];
           if(name === undefined) continue;
           const atlasIdx = decoTypeToAtlas[name];
@@ -720,13 +873,143 @@ class ThreeRenderer {
   _buildWalls(){
     this.wallDataIndestructible = [];
     this.wallDataDestructible = [];
+    this.doorMeshes = [];
     for(let r=0; r<ROWS; r++){
       for(let c=0; c<COLS; c++){
         if(MAP[r][c]===WALL) this.wallDataIndestructible.push({r,c});
         else if(MAP[r][c]===WDEST) this.wallDataDestructible.push({r,c});
+        else if(MAP[r][c]===DOOR){
+          // Entrance row (row 28) = just an opening, no 3D door (grand_door handles it)
+          if(r === ROWS - 4) continue;
+          // Other doors start closed
+          this._buildDoor3D(r, c, false);
+        }
       }
     }
     this._rebuildWallMeshes();
+  }
+
+  _buildDoor3D(r, c, startOpen = false){
+    const group = new THREE.Group();
+    const H = 0.75;
+    const THICKNESS = 0.06; // porte fine
+
+    // Detect wall orientation
+    const wallLeft = c > 0 && (this.wallDataIndestructible.some(w=>w.r===r&&w.c===c-1));
+    const wallRight = c < COLS-1 && (this.wallDataIndestructible.some(w=>w.r===r&&w.c===c+1));
+    const isHoriz = wallLeft || wallRight;
+
+    const frameMat = new THREE.MeshToonMaterial({color: 0x4a2d18});
+    const lintelMat = new THREE.MeshToonMaterial({color: 0x6a4530});
+
+    // Door panel — thin plane with texture
+    const loader = new THREE.TextureLoader();
+    const doorTex = loader.load('public/assets/tilesets/door-atlas.png');
+    doorTex.magFilter = THREE.NearestFilter;
+    doorTex.colorSpace = THREE.SRGBColorSpace;
+    // Use variant based on position hash
+    const variant = hash(r, c, 900) % 3;
+    doorTex.repeat.set(1/3, 1);
+    doorTex.offset.set(variant/3, 0);
+
+    const doorMat = new THREE.MeshToonMaterial({map: doorTex, side: THREE.DoubleSide});
+
+    // Create pivot group for door rotation (hinged opening)
+    const doorPivot = new THREE.Group();
+
+    if(isHoriz){
+      // Door in horizontal wall — panel faces Z axis, placed at wall edge
+      // Frame posts (thin, at edges of tile)
+      const pGeo = new THREE.BoxGeometry(0.08, H, 0.08);
+      const pL = new THREE.Mesh(pGeo, frameMat); pL.position.set(-0.46, H/2, 0); group.add(pL);
+      const pR = new THREE.Mesh(pGeo, frameMat); pR.position.set(0.46, H/2, 0); group.add(pR);
+      // Lintel (thin wood beam on top)
+      const tGeo = new THREE.BoxGeometry(1, 0.08, 0.1);
+      const tM = new THREE.Mesh(tGeo, lintelMat); tM.position.set(0, H + 0.04, 0); group.add(tM);
+
+      // Door panel — thin, fills the opening
+      const dGeo = new THREE.PlaneGeometry(0.84, H - 0.02);
+      const door = new THREE.Mesh(dGeo, doorMat);
+      door.position.set(0.42, 0, 0); // offset to hinge side
+      doorPivot.add(door);
+      doorPivot.position.set(-0.42, H/2, 0); // pivot at left post
+    } else {
+      // Door in vertical wall — panel faces X axis
+      const pGeo = new THREE.BoxGeometry(0.08, H, 0.08);
+      const pL = new THREE.Mesh(pGeo, frameMat); pL.position.set(0, H/2, -0.46); group.add(pL);
+      const pR = new THREE.Mesh(pGeo, frameMat); pR.position.set(0, H/2, 0.46); group.add(pR);
+      const tGeo = new THREE.BoxGeometry(0.1, 0.08, 1);
+      const tM = new THREE.Mesh(tGeo, lintelMat); tM.position.set(0, H + 0.04, 0); group.add(tM);
+
+      const dGeo = new THREE.PlaneGeometry(0.84, H - 0.02);
+      const door = new THREE.Mesh(dGeo, doorMat);
+      door.rotation.y = Math.PI / 2;
+      door.position.set(0, 0, 0.42);
+      doorPivot.add(door);
+      doorPivot.position.set(0, H/2, -0.42);
+    }
+
+    group.add(doorPivot);
+    group.position.set(c + 0.5, 0, r + 0.5);
+    group.userData = {r, c, isOpen: startOpen, doorPivot, isHoriz};
+    this.scene.add(group);
+    this.doorMeshes.push(group);
+
+    if(startOpen){
+      doorPivot.rotation.y = isHoriz ? -Math.PI / 2 : -Math.PI / 2;
+      MAP[r][c] = DOOR;
+    } else {
+      MAP[r][c] = WALL;
+    }
+  }
+
+  // Grand door (entrance) uses furniture texture, always open
+  _buildGrandDoor(r, c, w){
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load('public/assets/tilesets/furniture-grand_door.png');
+    tex.magFilter = THREE.NearestFilter;
+    tex.colorSpace = THREE.SRGBColorSpace;
+
+    const fw = w || 4; // number of tiles wide
+    const H = 0.95;
+    const W = fw * 0.9; // world units
+    const group = new THREE.Group();
+
+    // Frame (thick stone pillars)
+    const frameMat = new THREE.MeshToonMaterial({color: 0x5a4a3a});
+    const pGeo = new THREE.BoxGeometry(0.2, H, 0.2);
+    const pL = new THREE.Mesh(pGeo, frameMat); pL.position.set(-W/2 - 0.1, H/2, 0); group.add(pL);
+    const pR = new THREE.Mesh(pGeo, frameMat); pR.position.set(W/2 + 0.1, H/2, 0); group.add(pR);
+    // Arch lintel (stone)
+    const tGeo = new THREE.BoxGeometry(W + 0.4, 0.15, 0.2);
+    const tM = new THREE.Mesh(tGeo, new THREE.MeshToonMaterial({color: 0x6a5a48}));
+    tM.position.set(0, H + 0.08, 0); group.add(tM);
+
+    // Left door panel (textured)
+    const texL = tex.clone(); texL.needsUpdate = true;
+    texL.repeat.set(0.5, 1); texL.offset.set(0, 0);
+    const dGeo = new THREE.PlaneGeometry(W/2 - 0.05, H - 0.05);
+    const dL = new THREE.Mesh(dGeo, new THREE.MeshToonMaterial({map: texL, side: THREE.DoubleSide}));
+    const pivotL = new THREE.Group();
+    dL.position.set(W/4, 0, 0);
+    pivotL.add(dL);
+    pivotL.position.set(-W/2 + 0.05, H/2, 0);
+    pivotL.rotation.y = Math.PI / 3.5;
+    group.add(pivotL);
+
+    // Right door panel (textured)
+    const texR = tex.clone(); texR.needsUpdate = true;
+    texR.repeat.set(0.5, 1); texR.offset.set(0.5, 0);
+    const dR = new THREE.Mesh(dGeo, new THREE.MeshToonMaterial({map: texR, side: THREE.DoubleSide}));
+    const pivotR = new THREE.Group();
+    dR.position.set(-W/4, 0, 0);
+    pivotR.add(dR);
+    pivotR.position.set(W/2 - 0.05, H/2, 0);
+    pivotR.rotation.y = -Math.PI / 3.5;
+    group.add(pivotR);
+
+    group.position.set(c + fw/2, 0, r + 0.5);
+    this.scene.add(group);
   }
 
   _rebuildWallMeshes(){
@@ -867,22 +1150,96 @@ class ThreeRenderer {
 
   // ---- Water plane ----
   _buildWater(){
-    const wCols = [], wRows = [];
-    for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) if(MAP[r][c]===WATER){ wRows.push(r); wCols.push(c); }
-    if(wCols.length===0) return;
-    // Simple: one plane per water tile group - here just one area
-    const r0=14, c0=14, r1=15, c1=15;
-    const w = c1-c0+1, h = r1-r0+1;
-    const segs = w*4;
-    const geo = new THREE.PlaneGeometry(w, h, segs, segs);
-    const mat = new THREE.MeshToonMaterial({color: 0x1969aa, transparent: true, opacity: 0.85, depthWrite: false});
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI/2;
-    mesh.position.set(c0+w/2, 0.02, r0+h/2);
-    this.scene.add(mesh);
-    this.waterMesh = mesh;
-    this.waterGeo = geo;
-    this._waterPosAttr = geo.attributes.position;
+    // Find all water tiles
+    const waterTiles = [];
+    for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) if(MAP[r][c]===WATER) waterTiles.push({r,c});
+    if(waterTiles.length===0) return;
+    // Create individual small planes per water tile
+    this._waterPlanes = [];
+    for(const {r,c} of waterTiles){
+      const geo = new THREE.PlaneGeometry(1, 1, 4, 4);
+      const mat = new THREE.MeshToonMaterial({color: 0x1969aa, transparent: true, opacity: 0.85, depthWrite: false});
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI/2;
+      mesh.position.set(c+0.5, 0.02, r+0.5);
+      this.scene.add(mesh);
+      this._waterPlanes.push({mesh, geo, posAttr: geo.attributes.position, r, c});
+    }
+    // Keep legacy references for animation
+    if(this._waterPlanes.length > 0){
+      this.waterGeo = this._waterPlanes[0].geo;
+      this._waterPosAttr = this._waterPlanes[0].posAttr;
+    }
+  }
+
+  // ---- Furniture (3D boxes with texture on top) ----
+  _buildFurniture(){
+    for(const fm of this.furnitureMeshes) this.scene.remove(fm);
+    this.furnitureMeshes = [];
+
+    const loader = new THREE.TextureLoader();
+
+    // Height per furniture type
+    const heights = {
+      bed: 0.35, long_table: 0.45, bookshelf: 0.8, bathtub: 0.4,
+      wardrobe: 0.9, fireplace: 0.6, cradle: 0.35,
+      chandelier: 0.05, grand_door: 0.7,
+    };
+
+    for(const f of furnitureList){
+      const texPath = `public/assets/tilesets/furniture-${f.type}.png`;
+      const tex = loader.load(texPath);
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.LinearFilter;
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      const fw = f.w || 1;
+      const fh = f.h || 1;
+      const H = heights[f.type] || 0.5;
+
+      // Box geometry with texture on top face
+      const geo = new THREE.BoxGeometry(fw * 0.95, H, fh * 0.95);
+
+      // Top face: furniture texture. Other faces: tinted wood color
+      const topMat = new THREE.MeshToonMaterial({map: tex, color: 0xffffff});
+      const sideMat = new THREE.MeshToonMaterial({color: 0x6a4a32});
+      const frontMat = new THREE.MeshToonMaterial({color: 0x5a3a28});
+
+      // Grand door — special 3D construction
+      if(f.type === 'grand_door'){
+        this._buildGrandDoor(f.r, f.c, f.w);
+        continue;
+      }
+
+      // Chandelier is special — it hangs from ceiling, flat
+      if(f.type === 'chandelier'){
+        const mat = new THREE.MeshToonMaterial({map: tex, transparent: true, alphaTest: 0.1});
+        const cGeo = new THREE.PlaneGeometry(1.2, 1.2);
+        const cMesh = new THREE.Mesh(cGeo, mat);
+        cMesh.rotation.x = -Math.PI / 2;
+        cMesh.position.set(f.c + 0.5, 1.5, f.r + 0.5); // suspended from ceiling
+        cMesh.userData = {furniture: f};
+        this.scene.add(cMesh);
+        this.furnitureMeshes.push(cMesh);
+        continue;
+      }
+
+      // BoxGeometry faces: +x, -x, +y(top), -y(bottom), +z, -z
+      const mats = [sideMat, sideMat, topMat, frontMat, frontMat, sideMat];
+      const mesh = new THREE.Mesh(geo, mats);
+      mesh.position.set(f.c + fw * 0.5, H / 2, f.r + fh * 0.5);
+      mesh.userData = {furniture: f};
+
+      // Outline
+      const outGeo = geo.clone();
+      const outMat = new THREE.MeshBasicMaterial({color: 0x1a1208, side: THREE.BackSide});
+      const outline = new THREE.Mesh(outGeo, outMat);
+      outline.scale.set(1.04, 1.04, 1.04);
+      mesh.add(outline);
+
+      this.scene.add(mesh);
+      this.furnitureMeshes.push(mesh);
+    }
   }
 
   // ---- Torch point lights ----
@@ -1094,6 +1451,24 @@ class ThreeRenderer {
           return true;
         });
       }
+      // Remove destroyed furniture sprites
+      this.furnitureMeshes = this.furnitureMeshes.filter(sprite => {
+        const f = sprite.userData.furniture;
+        if(!f) return true;
+        // Check if any of its tiles are no longer FURNITURE
+        let destroyed = false;
+        for(let dr=0; dr<(f.h||1); dr++){
+          for(let dc=0; dc<f.w; dc++){
+            if(MAP[f.r+dr]?.[f.c+dc] !== FURNITURE) destroyed = true;
+          }
+        }
+        if(destroyed){
+          this.scene.remove(sprite);
+          sprite.material.dispose();
+          return false;
+        }
+        return true;
+      });
       this.lastMapVersion = state.mapVersion;
     }
 
@@ -1108,14 +1483,16 @@ class ThreeRenderer {
     this.camera.lookAt(this.camTarget.x, 0, this.camTarget.z);
 
     // Water animation
-    if(this.waterGeo && this._waterPosAttr){
-      const pos = this._waterPosAttr;
-      for(let i=0; i<pos.count; i++){
-        const x = pos.getX(i) + (14 + 1); // offset to world
-        const z = pos.getZ(i) + (14 + 1);
-        pos.setY(i, Math.sin(t*2 + x*0.8 + z*0.6)*0.04);
+    if(this._waterPlanes){
+      for(const wp of this._waterPlanes){
+        const pos = wp.posAttr;
+        for(let i=0; i<pos.count; i++){
+          const x = pos.getX(i) + wp.c + 0.5;
+          const z = pos.getZ(i) + wp.r + 0.5;
+          pos.setY(i, Math.sin(t*2 + x*0.8 + z*0.6)*0.04);
+        }
+        pos.needsUpdate = true;
       }
-      pos.needsUpdate = true;
     }
 
     // Torch flicker
@@ -1377,19 +1754,32 @@ btnReplay.addEventListener('click', ()=>{
 btnMenu.addEventListener('click', ()=> location.reload());
 
 // ==================== GAME LOOP ====================
-const renderer3d = new ThreeRenderer();
+let renderer3d = null;
 let lastTime = 0;
 
 function gameLoop(time=0){
   const dt = Math.min(time - lastTime, 50);
   lastTime = time;
   update(dt);
-  renderer3d.render(dt);
+  if(renderer3d) renderer3d.render(dt);
   updateHUD();
   requestAnimationFrame(gameLoop);
 }
 
-requestAnimationFrame(gameLoop);
+// Load map JSON then start
+async function startGame(){
+  try {
+    await loadMapJSON('public/assets/maps/level-1-manoir.json');
+  } catch(e) {
+    console.warn('Failed to load level-1-manoir.json, falling back to level-1.json', e);
+    await loadMapJSON('public/assets/maps/level-1.json');
+  }
+  state.gameState = 'playing';
+  renderer3d = new ThreeRenderer();
+  requestAnimationFrame(gameLoop);
+}
+
+startGame();
 </script>
 </body>
 </html>
