@@ -150,7 +150,8 @@ zIdleBack.src='public/assets/sprites/enemies/zombie-normal/idle-back.png';
 zWalkBack.src='public/assets/sprites/enemies/zombie-normal/walk-back.png';
 
 // ==================== ENTITIES ====================
-const player={x:14*TILE+TILE/2,y:7*TILE+TILE/2,hp:6,maxHp:6,name:'Angel',frame:0,animTimer:0,moving:false,bobTimer:0,bobY:0,facingDown:false};
+const player={x:14*TILE+TILE/2,y:7*TILE+TILE/2,hp:6,maxHp:6,name:'Angel',frame:0,animTimer:0,moving:false,bobTimer:0,bobY:0,facingDown:false,invincible:0,points:0};
+let gameState='playing'; // 'playing','victory','gameover'
 const zombies=[];
 function spawnZ(c,r,hp,spd,col,name){
   zombies.push({x:c*TILE+TILE/2,y:r*TILE+TILE/2,hp,maxHp:hp,speed:spd,color:col,name,
@@ -167,6 +168,9 @@ spawnZ(9,8,2,45,'#7a6a2a','Z.Moyen');spawnZ(18,8,2,45,'#7a6a2a','Z.Moyen');
 spawnZ(3,14,1,38,'#5a8f3c','Zombie');spawnZ(8,17,1,38,'#5a8f3c','Zombie');
 spawnZ(15,14,2,50,'#7a6a2a','Z.Moyen');spawnZ(20,17,2,50,'#7a6a2a','Z.Moyen');
 spawnZ(25,15,3,60,'#8b2020','Z.Rage');spawnZ(3,19,3,60,'#8b2020','Z.Rage');
+// Boss
+spawnZ(14,16,10,30,'#4a1a4a','BOSS');
+zombies[zombies.length-1].isBoss=true;
 
 const projectiles=[],particles=[],dmgNumbers=[];
 
@@ -201,6 +205,7 @@ function tryShoot(){
   let dx=0,dy=-1;
   if(closest){dx=closest.x-player.x;dy=closest.y-player.y;const l=Math.hypot(dx,dy);dx/=l;dy/=l;}
   projectiles.push({x:player.x,y:player.y,dx,dy,speed:380,life:0.7,timer:0,color:'#44ddff',radius:5,trail:[]});
+  sfxShoot();
 }
 
 // ==================== COLLISION ====================
@@ -213,10 +218,53 @@ function walkable(px,py,rad){
   }return true;
 }
 
+// ==================== AUDIO ====================
+let audioCtx=null,musicGain=null,sfxGain=null;
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  musicGain=audioCtx.createGain();musicGain.gain.value=0.3;musicGain.connect(audioCtx.destination);
+  sfxGain=audioCtx.createGain();sfxGain.gain.value=0.5;sfxGain.connect(audioCtx.destination);
+  startMusic();
+}
+function startMusic(){
+  if(!audioCtx)return;
+  // Simple procedural dark ambient loop
+  const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*4,audioCtx.sampleRate);
+  const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++){
+    const t=i/audioCtx.sampleRate;
+    data[i]=(Math.sin(t*55)*0.15+Math.sin(t*82.5)*0.1+Math.sin(t*110)*0.08+Math.sin(t*165*Math.sin(t*0.5))*0.05)*
+      (0.8+Math.sin(t*0.3)*0.2);
+  }
+  const src=audioCtx.createBufferSource();src.buffer=buf;src.loop=true;src.connect(musicGain);src.start();
+}
+function playSFX(freq,dur,type){
+  if(!audioCtx)return;
+  const osc=audioCtx.createOscillator();const g=audioCtx.createGain();
+  osc.type=type||'square';osc.frequency.value=freq;
+  g.gain.setValueAtTime(0.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  osc.connect(g);g.connect(sfxGain);osc.start();osc.stop(audioCtx.currentTime+dur);
+}
+function sfxShoot(){playSFX(800,0.1,'sine');playSFX(600,0.08,'square');}
+function sfxHit(){playSFX(200,0.15,'sawtooth');}
+function sfxZombieDie(){playSFX(150,0.3,'sawtooth');playSFX(100,0.4,'sine');}
+function sfxPlayerHit(){playSFX(120,0.2,'square');playSFX(80,0.3,'sine');}
+function sfxVictory(){playSFX(523,0.15,'sine');setTimeout(()=>playSFX(659,0.15,'sine'),150);setTimeout(()=>playSFX(784,0.3,'sine'),300);}
+function sfxGameOver(){playSFX(200,0.3,'sine');setTimeout(()=>playSFX(150,0.3,'sine'),200);setTimeout(()=>playSFX(100,0.5,'sine'),400);}
+
+// Init audio on first interaction
+['mousedown','touchstart','keydown'].forEach(ev=>window.addEventListener(ev,initAudio,{once:false}));
+
 // ==================== UPDATE ====================
 let gameTime=0;
 function update(dt){
+  if(gameState!=='playing')return;
   const s=dt/1000;gameTime+=s;
+
+  // Invincibility countdown
+  if(player.invincible>0)player.invincible-=dt;
+
   const{dx,dy}=getMove();player.moving=dx!==0||dy!==0;
   if(player.moving){
     if(dy>0.3) player.facingDown=true;
@@ -240,8 +288,13 @@ function update(dt){
       if(walkable(nx,ny)){z.x=nx;z.y=ny;}else if(walkable(nx,z.y))z.x=nx;else if(walkable(z.x,ny))z.y=ny;}
     z.bobTimer+=s*5;z.bobY=Math.sin(z.bobTimer)*2;
     z.animTimer=(z.animTimer||0)+dt;if(z.animTimer>180){z.animTimer=0;z.frame=(z.frame+1)%(z.moving?6:4);}
-    if(dist<18&&!z.hitCooldown){player.hp=Math.max(0,player.hp-1);z.hitCooldown=60;
-      dmgNumbers.push({x:player.x,y:player.y-20,text:'-1',timer:0,color:'#ff4444'});}
+    if(dist<18&&!z.hitCooldown&&player.invincible<=0){
+      player.hp=Math.max(0,player.hp-1);z.hitCooldown=60;
+      player.invincible=1000; // 1s invincibility
+      dmgNumbers.push({x:player.x,y:player.y-20,text:'-1',timer:0,color:'#ff4444'});
+      sfxPlayerHit();
+      if(player.hp<=0){gameState='gameover';sfxGameOver();}
+    }
     if(z.hitCooldown)z.hitCooldown--;
   }
 
@@ -251,9 +304,20 @@ function update(dt){
     const tc=Math.floor(p.x/TILE),tr=Math.floor(p.y/TILE);
     if(tc<0||tc>=COLS||tr<0||tr>=ROWS||MAP[tr][tc]===WALL){projectiles.splice(i,1);spawnParts(p.x,p.y,p.color,4);continue;}
     if(MAP[tr][tc]===WDEST){MAP[tr][tc]=GND;projectiles.splice(i,1);spawnWallBreak(tc*TILE+TILE/2,tr*TILE+TILE/2);continue;}
-    let hit=false;for(const z of zombies){if(z.hp<=0)continue;if(Math.hypot(z.x-p.x,z.y-p.y)<16){
-      z.hp--;dmgNumbers.push({x:z.x,y:z.y-25,text:''+Math.ceil(100/z.maxHp),timer:0,color:'#fff'});
-      spawnParts(p.x,p.y,p.color,3);if(z.hp<=0)spawnParts(z.x,z.y,'#5a3',6);hit=true;break;}}
+    let hit=false;for(const z of zombies){if(z.hp<=0)continue;if(Math.hypot(z.x-p.x,z.y-p.y)<(z.isBoss?22:16)){
+      z.hp--;sfxHit();
+      dmgNumbers.push({x:z.x,y:z.y-25,text:''+Math.ceil(100/z.maxHp),timer:0,color:'#fff'});
+      spawnParts(p.x,p.y,p.color,3);
+      if(z.hp<=0){
+        spawnParts(z.x,z.y,'#5a3',8);sfxZombieDie();
+        // Points: normal=10, moyen=20, rage=30, boss=50
+        const pts=z.isBoss?50:(z.maxHp===1?10:(z.maxHp===2?20:30));
+        player.points+=pts;
+        dmgNumbers.push({x:z.x,y:z.y-40,text:'+'+pts,timer:0,color:'#ffdd44'});
+        // Check victory
+        if(zombies.every(zz=>zz.hp<=0)){gameState='victory';sfxVictory();}
+      }
+      hit=true;break;}}
     if(hit){projectiles.splice(i,1);continue;}if(p.timer>p.life)projectiles.splice(i,1);
   }
 
@@ -784,6 +848,9 @@ function draw(){
 }
 
 function drawChar(sx,sy,haloCol,ent,isP){
+  // Invincibility blink — skip drawing every other frame
+  if(isP&&player.invincible>0&&Math.floor(gameTime*12)%2===0)return;
+
   ctx.fillStyle='rgba(0,0,0,0.3)';ctx.beginPath();ctx.ellipse(sx,sy+14,14,6,0,0,6.28);ctx.fill();
   ctx.fillStyle=haloCol+'55';ctx.beginPath();ctx.ellipse(sx,sy+12,16,7,0,0,6.28);ctx.fill();
   ctx.strokeStyle=haloCol;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(sx,sy+12,16,7,0,0,6.28);ctx.stroke();
@@ -812,7 +879,7 @@ function drawZombie(sx,sy,z){
   const sheet=z.facingDown
     ? (z.moving?zWalkFront:zIdleFront)
     : (z.moving?zWalkBack:zIdleBack);
-  const sz=52;
+  const sz=z.isBoss?72:52;
   if(sheet.complete){
     ctx.drawImage(sheet,(z.frame||0)*128,0,128,128,sx-sz/2,sy-sz/2-10+z.bobY,sz,sz);
   }
@@ -827,24 +894,85 @@ function drawZombie(sx,sy,z){
 
 function drawUI(){
   const vw=canvas.width,vh=canvas.height;
+
+  // Joystick
   const jx=80,jy=vh-90;
   ctx.globalAlpha=0.35;ctx.fillStyle='#888';ctx.beginPath();ctx.arc(jx,jy,JOY_R,0,6.28);ctx.fill();
   ctx.strokeStyle='#aaa';ctx.lineWidth=2;ctx.beginPath();ctx.arc(jx,jy,JOY_R,0,6.28);ctx.stroke();
   let tx=jx,ty=jy;
   if(joyActive){const l=Math.min(Math.hypot(joyDelta.x,joyDelta.y),JOY_R),a=Math.atan2(joyDelta.y,joyDelta.x);tx=jx+Math.cos(a)*l;ty=jy+Math.sin(a)*l;}
   ctx.globalAlpha=0.5;ctx.fillStyle='#ccc';ctx.beginPath();ctx.arc(tx,ty,22,0,6.28);ctx.fill();ctx.globalAlpha=1;
+
+  // Attack button
   const ax=vw-80,ay=vh-90;
   ctx.globalAlpha=0.4;ctx.fillStyle='#e84';ctx.beginPath();ctx.arc(ax,ay,35,0,6.28);ctx.fill();
   ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ax,ay,35,0,6.28);ctx.stroke();
   ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ax,ay,12,0,6.28);ctx.stroke();
   ctx.beginPath();ctx.moveTo(ax,ay-18);ctx.lineTo(ax,ay+18);ctx.stroke();
   ctx.beginPath();ctx.moveTo(ax-18,ay);ctx.lineTo(ax+18,ay);ctx.stroke();ctx.globalAlpha=1;
+
+  // Top bar: Zombies count + Points
   const alive=zombies.filter(z=>z.hp>0).length;
   ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.strokeStyle='#000';ctx.lineWidth=4;
-  ctx.strokeText(`Zombies: ${alive}`,vw/2,30);ctx.fillStyle='#fff';ctx.fillText(`Zombies: ${alive}`,vw/2,30);ctx.textAlign='start';
-  for(let i=0;i<3;i++){const hx=vw/2-40+i*28,hy=42;ctx.font='20px Arial';
+  ctx.strokeText(`Zombies: ${alive}`,vw/2,30);ctx.fillStyle='#fff';ctx.fillText(`Zombies: ${alive}`,vw/2,30);
+
+  // Points (top right)
+  ctx.textAlign='right';ctx.font='bold 18px Arial';
+  ctx.strokeStyle='#000';ctx.lineWidth=3;
+  ctx.strokeText(`${player.points} pts`,vw-15,28);
+  ctx.fillStyle='#ffdd44';ctx.fillText(`${player.points} pts`,vw-15,28);
+  ctx.textAlign='start';
+
+  // Hearts
+  for(let i=0;i<3;i++){const hx=15+i*28,hy=26;ctx.font='20px Arial';
     ctx.fillText(player.hp>=(i+1)*2?'❤️':(player.hp>=i*2+1?'💔':'🖤'),hx,hy);}
+
+  // Victory screen
+  if(gameState==='victory'){
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,vw,vh);
+    ctx.textAlign='center';
+    ctx.font='bold 48px Arial';ctx.strokeStyle='#000';ctx.lineWidth=5;
+    ctx.strokeText('VICTOIRE !',vw/2,vh/2-40);ctx.fillStyle='#44ff44';ctx.fillText('VICTOIRE !',vw/2,vh/2-40);
+    ctx.font='bold 24px Arial';ctx.fillStyle='#ffdd44';
+    ctx.strokeText(`${player.points} points`,vw/2,vh/2+10);ctx.fillText(`${player.points} points`,vw/2,vh/2+10);
+    ctx.font='18px Arial';ctx.fillStyle='#aaa';
+    ctx.fillText('Appuyez sur R pour recommencer',vw/2,vh/2+60);
+    ctx.textAlign='start';
+  }
+
+  // Game Over screen
+  if(gameState==='gameover'){
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,vw,vh);
+    ctx.textAlign='center';
+    ctx.font='bold 48px Arial';ctx.strokeStyle='#000';ctx.lineWidth=5;
+    ctx.strokeText('GAME OVER',vw/2,vh/2-50);ctx.fillStyle='#ff4444';ctx.fillText('GAME OVER',vw/2,vh/2-50);
+    ctx.font='bold 20px Arial';ctx.fillStyle='#ffdd44';
+    ctx.strokeText(`${player.points} points`,vw/2,vh/2);ctx.fillText(`${player.points} points`,vw/2,vh/2);
+    // Rejouer button
+    ctx.font='bold 22px Arial';
+    ctx.fillStyle='#44cc44';ctx.fillText('[R] Rejouer (-100 pts)',vw/2,vh/2+50);
+    ctx.fillStyle='#aaaaaa';ctx.fillText('[M] Menu',vw/2,vh/2+85);
+    ctx.textAlign='start';
+  }
 }
+
+// Restart / Menu key handling
+window.addEventListener('keydown',e=>{
+  if(e.key.toLowerCase()==='r'){
+    if(gameState==='victory'){
+      location.reload();
+    } else if(gameState==='gameover'){
+      // Rejouer: resume from death spot, -100 pts
+      player.hp=player.maxHp;
+      player.points=Math.max(0,player.points-100);
+      player.invincible=2000;
+      gameState='playing';
+    }
+  }
+  if(e.key.toLowerCase()==='m'&&gameState==='gameover'){
+    location.reload(); // Pour l'instant reload = retour menu
+  }
+});
 
 let lastTime=0;
 function gameLoop(time=0){const dt=Math.min(time-lastTime,50);lastTime=time;update(dt);draw();requestAnimationFrame(gameLoop);}

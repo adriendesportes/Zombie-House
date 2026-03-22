@@ -18,7 +18,7 @@
 | Story | Titre                                      | Dependances | Statut    |
 | ----- | ------------------------------------------ | ----------- | --------- |
 | 001   | Assets graphiques MVP                      | —           | `DONE`    |
-| 002   | MVP jouable (prototype complet)            | 001         | `DEV`     |
+| 002   | MVP jouable (prototype complet)            | 001         | `DONE`    |
 | 003   | Setup projet (HTML + Canvas + Three.js)    | —           | `DONE`    |
 | 004   | Map de test (28x22, 5 zones, JSON)         | 001, 003    | `DONE`    |
 | 005   | Player Angel Monster (deplacement + sprites)| 001, 003   | `DONE`    |
@@ -26,15 +26,15 @@
 | 007   | Projectile (auto-aim + trail + particules) | 005         | `DONE`    |
 | 008   | Ennemis (Normal + Moyen + Rage, sprites)   | 001, 004    | `DONE`    |
 | 009   | Systeme de vie (coeurs + degats contact)   | 005, 008    | `DONE`    |
-| 010   | Systeme de points                          | 008         | `BACKLOG` |
+| 010   | Systeme de points                          | 008         | `DONE`    |
 | 011   | Portes (3 variantes visuelles)             | 004         | `DONE`    |
-| 012   | Condition victoire + Game Over             | 008, 009    | `BACKLOG` |
-| 013   | Audio minimal (1 musique + SFX de base)    | 003         | `BACKLOG` |
+| 012   | Condition victoire + Game Over             | 008, 009    | `DONE`    |
+| 013   | Audio minimal (1 musique + SFX de base)    | 003         | `DONE`    |
 | 014   | HUD en jeu (coeurs, compteur, joystick)    | 006, 009    | `DONE`    |
 | 015   | Rendu 3D Three.js (camera + textures atlas)| 001, 004    | `DONE`    |
 | 016   | Murs destructibles (3 variantes + particules)| 004       | `DONE`    |
-| 017   | Boss niveau 1                              | 008         | `BACKLOG` |
-| 018   | Invincibilite temporaire + clignotement    | 009         | `BACKLOG` |
+| 017   | Boss niveau 1                              | 008         | `DONE`    |
+| 018   | Invincibilite temporaire + clignotement    | 009         | `DONE`    |
 
 ---
 
@@ -125,11 +125,11 @@
 
 | Epic | Nom                      | Stories | Done | Progression |
 | ---- | ------------------------ | ------- | ---- | ----------- |
-| 1    | MVP                      | 18      | 12   | 67%         |
+| 1    | MVP                      | 18      | 17   | 94%         |
 | 2    | Menu et progression      | 7       | 0    | 0%          |
 | 3    | Gameplay complet         | 5       | 0    | 0%          |
 | 4    | Audio complet            | 5       | 0    | 0%          |
 | 5    | Maps et contenu          | 11      | 0    | 0%          |
 | 6    | Personnages additionnels | 6       | 0    | 0%          |
 | 7    | Polish et publication    | 7       | 1    | 14%         |
-| **Total** |                     | **59**  | **13**| **22%**    |
+| **Total** |                     | **59**  | **18**| **31%**    |
