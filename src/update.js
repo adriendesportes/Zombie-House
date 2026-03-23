@@ -140,7 +140,7 @@ export function update(dt){
   p.bobTimer += s*6;
   p.bobY = p.moving ? Math.sin(p.bobTimer)*3/TILE_PX : Math.sin(p.bobTimer*2)*1.5/TILE_PX;
   p.animTimer += dt;
-  if(p.animTimer > 150){ p.animTimer=0; p.frame=(p.frame+1)%(p.moving?6:4); }
+  if(p.animTimer > 50){ p.animTimer=0; p.frame=(p.frame+1)%(p.moving?36:36); }
 
   // ---- Surprise trigger zones ----
   for(const sp of surpriseSpawns){

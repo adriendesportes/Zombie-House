@@ -35,26 +35,51 @@ function updateHealthBar(hb, ratio){
   hb.tex.needsUpdate = true;
 }
 
-export function buildPlayer(){
-  const group = new THREE.Group();
+// Direction angles for 8-directional sprites
+const DIR_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
-  const loader = new THREE.TextureLoader();
-  const sheets = {
-    idleBack:  loader.load('public/assets/sprites/heroes/angel-monster/idle.png'),
-    walkBack:  loader.load('public/assets/sprites/heroes/angel-monster/walk.png'),
-    idleFront: loader.load('public/assets/sprites/heroes/angel-monster/idle-front.png'),
-    walkFront: loader.load('public/assets/sprites/heroes/angel-monster/walk-front.png'),
-  };
+// Map angle to number of frames per animation
+const PLAYER_FRAMES = { idle: 36, walk: 36 };
+const ZOMBIE_FRAMES = { idle: 4, walk: 6 };
+
+function loadDirectionalSheets(loader, basePath, frameConfig, filter){
+  const sheets = {};
+  for(const angle of DIR_ANGLES){
+    for(const anim of Object.keys(frameConfig)){
+      const key = `${anim}_${angle}`;
+      sheets[key] = loader.load(`${basePath}/${anim}-${angle}.png`);
+    }
+  }
   for(const key in sheets){
     const tex = sheets[key];
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
+    tex.magFilter = filter;
+    tex.minFilter = filter;
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
   }
-  const initTex = sheets.idleBack;
-  initTex.repeat.set(1/4, 1);
+  return sheets;
+}
+
+// Convert facingDx/facingDy to nearest 45° angle
+export function facingToAngle(dx, dy){
+  const angle = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+  const sector = Math.round(angle / 45) % 8;
+  return sector * 45;
+}
+
+export function buildPlayer(){
+  const group = new THREE.Group();
+
+  const loader = new THREE.TextureLoader();
+  const sheets = loadDirectionalSheets(
+    loader, 'public/assets/sprites/heroes/angel-monster',
+    PLAYER_FRAMES, THREE.LinearFilter
+  );
+
+  const initKey = 'idle_0';
+  const initTex = sheets[initKey];
+  initTex.repeat.set(1/PLAYER_FRAMES.idle, 1);
   initTex.offset.set(0, 0);
 
   const spriteMat = new THREE.SpriteMaterial({
@@ -68,29 +93,21 @@ export function buildPlayer(){
   sprite.center.set(0.5, 0.3);
   group.add(sprite);
 
-  return {group, sprite, spriteMat, sheets, currentSheet: 'idleBack'};
+  return {group, sprite, spriteMat, sheets, currentSheet: initKey, frameConfig: PLAYER_FRAMES};
 }
 
 export function buildZombie(z){
   const group = new THREE.Group();
 
   const loader = new THREE.TextureLoader();
-  const sheets = {
-    idleFront: loader.load('public/assets/sprites/enemies/zombie-normal/idle-front.png'),
-    idleBack:  loader.load('public/assets/sprites/enemies/zombie-normal/idle-back.png'),
-    walkFront: loader.load('public/assets/sprites/enemies/zombie-normal/walk-front.png'),
-    walkBack:  loader.load('public/assets/sprites/enemies/zombie-normal/walk-back.png'),
-  };
-  for(const key in sheets){
-    const tex = sheets[key];
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = THREE.ClampToEdgeWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-  }
-  const initTex = sheets.idleFront;
-  initTex.repeat.set(1/4, 1);
+  const sheets = loadDirectionalSheets(
+    loader, 'public/assets/sprites/enemies/zombie-normal',
+    ZOMBIE_FRAMES, THREE.NearestFilter
+  );
+
+  const initKey = 'idle_0';
+  const initTex = sheets[initKey];
+  initTex.repeat.set(1/ZOMBIE_FRAMES.idle, 1);
   initTex.offset.set(0, 0);
 
   const spriteMat = new THREE.SpriteMaterial({
@@ -105,7 +122,7 @@ export function buildZombie(z){
   sprite.center.set(0.5, 0.3);
   group.add(sprite);
 
-  return {group, sprite, spriteMat, sheets, currentSheet: 'idleFront'};
+  return {group, sprite, spriteMat, sheets, currentSheet: initKey, frameConfig: ZOMBIE_FRAMES};
 }
 
 export function makeShadow(){

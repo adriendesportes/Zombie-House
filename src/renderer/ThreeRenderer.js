@@ -10,7 +10,7 @@ import { buildDoor3D } from './doors.js';
 import { buildFurniture } from './furniture.js';
 import { buildBushes } from './trees.js';
 import { buildWater } from './water.js';
-import { buildPlayer, buildZombie, makeShadow, makeHalo } from './characters.js';
+import { buildPlayer, buildZombie, makeShadow, makeHalo, facingToAngle } from './characters.js';
 import { buildBats, respawnBat, getProjMesh, getTrailMesh, getParticleMesh, makeDmgSprite } from './effects.js';
 import { buildTorchLights } from './torches.js';
 
@@ -295,10 +295,10 @@ export class ThreeRenderer {
     pm.group.position.set(p.x, bobY, p.y);
     pm.group.visible = !(p.invincible > 0 && Math.floor(t*12) % 2 === 0);
 
-    const sheetKey = p.facingDown
-      ? (p.moving ? 'walkFront' : 'idleFront')
-      : (p.moving ? 'walkBack' : 'idleBack');
-    const numFrames = p.moving ? 6 : 4;
+    const pAngle = facingToAngle(p.facingDx, p.facingDy);
+    const pAnim = p.moving ? 'walk' : 'idle';
+    const sheetKey = `${pAnim}_${pAngle}`;
+    const numFrames = pm.frameConfig[pAnim];
 
     if(pm.currentSheet !== sheetKey){
       const newTex = pm.sheets[sheetKey];
@@ -345,14 +345,13 @@ export class ThreeRenderer {
       zm.halo.position.set(z.x, 0.02, z.y);
       zm.halo.material.opacity = 0.3 + 0.15*Math.sin(t*2 + i);
 
-      // Sprite sheet animation
+      // Sprite sheet animation (8 directions)
       const zp = zm.parts;
       if(zp.sheets){
-        const facingDown = z.facingDy > 0;
-        const zSheetKey = facingDown
-          ? (z.moving ? 'walkFront' : 'idleFront')
-          : (z.moving ? 'walkBack' : 'idleBack');
-        const zNumFrames = z.moving ? 6 : 4;
+        const zAngle = facingToAngle(z.facingDx, z.facingDy);
+        const zAnim = z.moving ? 'walk' : 'idle';
+        const zSheetKey = `${zAnim}_${zAngle}`;
+        const zNumFrames = zp.frameConfig[zAnim];
 
         if(zp.currentSheet !== zSheetKey){
           const newTex = zp.sheets[zSheetKey];
