@@ -1262,6 +1262,66 @@ def gen_furniture_cradle():
     return img
 
 
+def gen_furniture_piano():
+    """Piano a queue avec banc — vu de dessus, 2x1 tiles."""
+    img = Image.new('RGBA', (T * 2, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    w, h = T * 2, T
+
+    # Corps du piano a queue (courbe a gauche, droit a droite)
+    # Forme arrondie
+    d.pieslice([8, 8, w - 50, h - 8], 90, 270, fill=(20, 20, 25))
+    d.rectangle([w // 2 - 30, 8, w - 15, h - 8], fill=(20, 20, 25))
+
+    # Couvercle ouvert (plus clair)
+    d.pieslice([14, 14, w - 56, h - 14], 90, 270, fill=(28, 28, 33))
+    d.rectangle([w // 2 - 25, 14, w - 22, h // 2 + 10], fill=(28, 28, 33))
+
+    # Reflets vernis
+    d.arc([20, 18, w // 2 - 10, h - 20], 120, 240, fill=(50, 50, 55), width=2)
+    d.line([(w // 2, 20), (w - 30, 22)], fill=(45, 45, 50), width=2)
+
+    # Cordes dorees
+    d.line([(w // 4, 20), (w - 25, h // 2 - 5)], fill=(155, 140, 70), width=2)
+    d.line([(w // 4 + 5, 28), (w - 22, h // 2 + 2)], fill=(145, 130, 65), width=1)
+
+    # Clavier (cote droit)
+    kb_x = w - 42
+    kb_y = h // 2 + 12
+    kb_w = 25
+    kb_h = h // 2 - 22
+    for i in range(10):
+        ky = kb_y + i * (kb_h // 10)
+        d.rectangle([kb_x, ky, kb_x + kb_w, ky + kb_h // 10 - 1], fill=(232, 228, 220))
+        d.line([(kb_x, ky), (kb_x + kb_w, ky)], fill=(185, 182, 175))
+    for i in [1, 2, 4, 5, 6, 8, 9]:
+        ky = kb_y + i * (kb_h // 10)
+        d.rectangle([kb_x, ky, kb_x + kb_w * 2 // 3, ky + kb_h // 20], fill=(12, 10, 8))
+
+    # Pieds
+    for px, py in [(25, h - 12), (w - 20, h - 12), (w // 2 - 20, h - 10)]:
+        d.ellipse([px - 4, py - 2, px + 4, py + 2], fill=(10, 10, 12))
+
+    # Outline piano
+    d.pieslice([8, 8, w - 50, h - 8], 90, 270, outline=(5, 5, 8), width=3)
+    d.rectangle([w // 2 - 30, 8, w - 15, h - 8], outline=(5, 5, 8), width=3)
+
+    # Banc (en bas a droite, devant le clavier)
+    bx, by = w - 55, h - 28
+    bw, bh = 45, 18
+    d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=3, fill=(95, 28, 25))
+    d.rounded_rectangle([bx + 2, by + 2, bx + bw - 2, by + bh - 2], radius=2, fill=(110, 32, 28))
+    # Capitons
+    for cx in range(bx + 8, bx + bw - 5, 10):
+        d.ellipse([cx - 1, by + bh // 2 - 1, cx + 1, by + bh // 2 + 1], fill=(78, 22, 18))
+    d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=3, outline=(5, 5, 8), width=2)
+    # Pieds banc
+    d.rectangle([bx + 3, by + bh, bx + 7, by + bh + 4], fill=(15, 15, 18))
+    d.rectangle([bx + bw - 7, by + bh, bx + bw - 3, by + bh + 4], fill=(15, 15, 18))
+
+    return img
+
+
 def gen_furniture_stairs_broken():
     """Escalier detruit vu de dessus — marches cassees, debris."""
     img = Image.new('RGBA', (T * 2, T), (0, 0, 0, 0))
@@ -1674,7 +1734,7 @@ def main():
         gen_furniture_cradle(),      # 6: 1x1 (128x128)
         gen_furniture_chandelier(),  # 7: 1x1 (128x128)
         gen_furniture_grand_door(),  # 8: 2x1 (256x128)
-        gen_furniture_stairs_broken(), # 9: 2x1 (256x128)
+        # stairs_broken + piano: LLM assets, NOT overwritten here
     ]
     # Custom atlas: each item gets its own row, max width = 256
     max_w = max(f.size[0] for f in furniture)
@@ -1688,7 +1748,8 @@ def main():
     print(f"  furniture-atlas.png ({len(furniture)} items, {max_w}x{total_h})")
 
     # Also save individual furniture PNGs for easier sprite loading
-    furn_names = ['bed', 'long_table', 'bookshelf', 'bathtub', 'wardrobe', 'fireplace', 'cradle', 'chandelier', 'grand_door', 'stairs_broken']
+    furn_names = ['bed', 'long_table', 'bookshelf', 'bathtub', 'wardrobe', 'fireplace', 'cradle', 'chandelier', 'grand_door']
+    # LLM assets (not overwritten): stairs_broken, stairs_broken_left, piano
     for name, fimg in zip(furn_names, furniture):
         fimg.save(os.path.join(OUTPUT, f"furniture-{name}.png"))
         print(f"  furniture-{name}.png ({fimg.size[0]}x{fimg.size[1]})")

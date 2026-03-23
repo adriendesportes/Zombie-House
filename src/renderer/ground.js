@@ -4,7 +4,7 @@ import {
   GND, WALL, WDEST, BUSH, WATER, STONE, DIRT, GRAVEL, WOOD, CARPET, DOOR,
   BATHROOM, WORN_CARPET, FURNITURE,
   DECO_NONE, DECO_TORCH,
-  COLS, ROWS, MAP, DECO, hash,
+  COLS, ROWS, MAP, DECO, GROUND_RAW, hash,
 } from '../state.js';
 
 export function buildGround(scene){
@@ -25,9 +25,9 @@ export function buildGround(scene){
   const typeToAtlas = {
     [GND]: 0, [BUSH]: 0, [STONE]: 1, [DIRT]: 2, [GRAVEL]: 3,
     [WOOD]: 4, [CARPET]: 5, [WATER]: 6, [DOOR]: -1,
-    [WALL]: 0, [WDEST]: 0,
+    [WALL]: -2, [WDEST]: -2, // -2 = detect from neighbor
     [BATHROOM]: 7, [WORN_CARPET]: 8,
-    [FURNITURE]: 4,
+    [FURNITURE]: -2, // use GROUND_RAW to get the real floor type
   };
   const decoTypeToAtlas = {
     'bones':0, 'skull':1, 'crack':2, 'web':3, 'blood':4,
@@ -60,7 +60,14 @@ export function buildGround(scene){
           const doorVar = hash(r, c, 900) % 3;
           gCtx.drawImage(doorAtlas, doorVar * AT, 0, AT, AT, dx, dy, cs, cs);
         } else {
-          const atlasIdx = typeToAtlas[t] ?? 0;
+          let atlasIdx = typeToAtlas[t];
+          // For walls/destructibles: use GROUND_RAW (original floor type before wall override)
+          if(atlasIdx === -2){
+            const rawTile = GROUND_RAW[r]?.[c] ?? GND;
+            atlasIdx = typeToAtlas[rawTile];
+            if(atlasIdx === undefined || atlasIdx < 0) atlasIdx = 0;
+          }
+          if(atlasIdx === undefined || atlasIdx < 0) atlasIdx = 0;
           gCtx.drawImage(groundAtlas, atlasIdx * AT, 0, AT, AT, dx, dy, cs, cs);
         }
       }

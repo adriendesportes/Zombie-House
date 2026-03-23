@@ -12,7 +12,7 @@ export function buildFurniture(scene, renderer){
   const heights = {
     bed: 0.35, long_table: 0.45, bookshelf: 0.8, bathtub: 0.4,
     wardrobe: 0.9, fireplace: 0.6, cradle: 0.35,
-    chandelier: 0.05, grand_door: 0.7, stairs_broken: 0.5,
+    chandelier: 0.05, grand_door: 0.7, stairs_broken: 0.5, stairs_broken_left: 0.5, piano: 0.45,
   };
 
   for(const f of furnitureList){
@@ -32,94 +32,62 @@ export function buildFurniture(scene, renderer){
     const frontMat = new THREE.MeshToonMaterial({color: 0x5a3a28});
 
     // Broken stairs — 3D stepped construction
-    if(f.type === 'stairs_broken'){
+    // Piano — 3D inclined plane with LLM texture (same method as stairs)
+    if(f.type === 'piano'){
+      const pianoTex = loader.load('public/assets/tilesets/furniture-piano.png');
+      pianoTex.magFilter = THREE.NearestFilter;
+      pianoTex.minFilter = THREE.LinearFilter;
+      pianoTex.colorSpace = THREE.SRGBColorSpace;
+
       const group = new THREE.Group();
-      const stoneMat = new THREE.MeshToonMaterial({color: 0x68635a});
-      const stoneHiMat = new THREE.MeshToonMaterial({color: 0x78736a});
-      const stoneDkMat = new THREE.MeshToonMaterial({color: 0x504a42});
-      const rubbleMat = new THREE.MeshToonMaterial({color: 0x5a5548});
-      const railMat = new THREE.MeshToonMaterial({color: 0x4a3520});
+      const pianoW = fw * 1.5;
+      const pianoD = 2.0;
+      const pianoH = 1.0;
 
-      const stepsCount = 6;
-      const stepW = fw * 0.95;
-      const stepD = 0.28;
-      const stepH = 0.12;
+      const rampLen = Math.sqrt(pianoD * pianoD + pianoH * pianoH);
+      const rampGeo = new THREE.PlaneGeometry(pianoW, rampLen);
+      const rampMat = new THREE.MeshToonMaterial({
+        map: pianoTex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide
+      });
+      const ramp = new THREE.Mesh(rampGeo, rampMat);
+      const rampAngle = Math.atan2(pianoH, pianoD);
+      ramp.rotation.x = -Math.PI / 2 + rampAngle;
+      ramp.position.set(0, pianoH * 0.5, -pianoD * 0.4);
+      group.add(ramp);
 
-      for(let i = 0; i < stepsCount; i++){
-        const isBroken = (i === 2 || i === 4);
-        const y = i * stepH;
-        const z = -i * stepD;
+      group.position.set(f.c + fw / 2, 0, f.r + 0.5);
+      group.userData = {furniture: f};
+      scene.add(group);
+      renderer.furnitureMeshes.push(group);
+      continue;
+    }
 
-        if(isBroken){
-          for(let frag = 0; frag < 4; frag++){
-            const fragW = 0.15 + Math.random() * 0.25;
-            const fragH = 0.04 + Math.random() * 0.06;
-            const fragD = 0.08 + Math.random() * 0.12;
-            const fragGeo = new THREE.BoxGeometry(fragW, fragH, fragD);
-            const piece = new THREE.Mesh(fragGeo, rubbleMat);
-            piece.position.set(
-              (frag - 1.5) * 0.35 + (Math.random() - 0.5) * 0.2,
-              y * 0.3 + fragH / 2,
-              z + (Math.random() - 0.5) * 0.3
-            );
-            piece.rotation.set(Math.random() * 0.5, Math.random() * 1, Math.random() * 0.3);
-            group.add(piece);
-          }
-        } else {
-          const sGeo = new THREE.BoxGeometry(stepW, stepH, stepD);
-          const mats = [stoneDkMat, stoneDkMat, stoneHiMat, stoneDkMat, stoneMat, stoneMat];
-          const step = new THREE.Mesh(sGeo, mats);
-          step.position.set(0, y + stepH / 2, z);
-          group.add(step);
+    if(f.type === 'stairs_broken' || f.type === 'stairs_broken_left'){
+      // 3D inclined plane with LLM texture
+      const texFile = f.type === 'stairs_broken_left'
+        ? 'public/assets/tilesets/furniture-stairs_broken_left.png'
+        : 'public/assets/tilesets/furniture-stairs_broken.png';
+      const stairsTex = loader.load(texFile);
+      stairsTex.magFilter = THREE.NearestFilter;
+      stairsTex.minFilter = THREE.LinearFilter;
+      stairsTex.colorSpace = THREE.SRGBColorSpace;
 
-          if(i === 3){
-            const chip = new THREE.Mesh(new THREE.BoxGeometry(0.2, stepH + 0.01, 0.08), rubbleMat);
-            chip.position.set(0.3, y + stepH / 2, z + stepD / 2);
-            group.add(chip);
-          }
-        }
-      }
+      const group = new THREE.Group();
+      const stairsW = fw * 1.5;
+      const stairsD = 2.2;  // longer ramp to reach above the wall
+      const stairsH = 1.4;  // taller than wall (0.8) — goes to upper floor
 
-      // Left railing (broken)
-      const railH = stepsCount * stepH + 0.3;
-      const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.06, railH * 0.5, 0.06), railMat);
-      leftRail.position.set(-stepW / 2 - 0.04, railH * 0.25, 0);
-      group.add(leftRail);
-      const brokenRail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.25, 0.05), railMat);
-      brokenRail.position.set(-stepW / 2 - 0.04, railH * 0.5 + 0.05, -stepD);
-      brokenRail.rotation.z = 0.4;
-      brokenRail.rotation.x = -0.3;
-      group.add(brokenRail);
-
-      // Right railing (intact)
-      const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.06, railH, 0.06), railMat);
-      rightRail.position.set(stepW / 2 + 0.04, railH / 2, -stepsCount * stepD / 2);
-      group.add(rightRail);
-      const handrail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, stepsCount * stepD), railMat);
-      handrail.position.set(stepW / 2 + 0.04, railH + 0.02, -stepsCount * stepD / 2);
-      handrail.rotation.x = Math.atan2(stepsCount * stepH, stepsCount * stepD);
-      group.add(handrail);
-
-      // Rubble at the base
-      for(let j = 0; j < 5; j++){
-        const rGeo = new THREE.BoxGeometry(0.08 + Math.random() * 0.1, 0.05 + Math.random() * 0.06, 0.08 + Math.random() * 0.1);
-        const rubble = new THREE.Mesh(rGeo, rubbleMat);
-        rubble.position.set((Math.random() - 0.5) * stepW, 0.03, 0.3 + Math.random() * 0.4);
-        rubble.rotation.set(Math.random() * 0.5, Math.random() * 2, Math.random() * 0.5);
-        group.add(rubble);
-      }
-
-      // Outline
-      const outMat = new THREE.MeshBasicMaterial({color: 0x1a1208, side: THREE.BackSide});
-      for(const child of [...group.children]){
-        if(child.geometry){
-          const outline = new THREE.Mesh(child.geometry.clone(), outMat);
-          outline.position.copy(child.position);
-          outline.rotation.copy(child.rotation);
-          outline.scale.copy(child.scale).multiplyScalar(1.06);
-          group.add(outline);
-        }
-      }
+      // Inclined ramp with texture
+      const rampLen = Math.sqrt(stairsD * stairsD + stairsH * stairsH);
+      const rampGeo = new THREE.PlaneGeometry(stairsW, rampLen);
+      const rampMat = new THREE.MeshToonMaterial({
+        map: stairsTex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide
+      });
+      const ramp = new THREE.Mesh(rampGeo, rampMat);
+      const rampAngle = Math.atan2(stairsH, stairsD);
+      ramp.rotation.x = -Math.PI / 2 + rampAngle;
+      ramp.position.set(0, stairsH * 0.5, -stairsD * 0.4);
+      group.add(ramp);
 
       group.position.set(f.c + fw / 2, 0, f.r + 0.5);
       group.userData = {furniture: f};
@@ -130,7 +98,7 @@ export function buildFurniture(scene, renderer){
 
     // Grand door
     if(f.type === 'grand_door'){
-      buildGrandDoor(scene, f.r, f.c, f.w);
+      buildGrandDoor(scene, renderer, f.r, f.c, f.w);
       continue;
     }
 

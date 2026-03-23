@@ -24,6 +24,7 @@ export function setROWS(v) { ROWS = v; }
 // Map arrays (populated from JSON)
 export const MAP = [];
 export const DECO = [];
+export const GROUND_RAW = [];
 
 // Shared mutable lists
 export let furnitureList = [];

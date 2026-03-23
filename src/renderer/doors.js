@@ -69,7 +69,7 @@ export function buildDoor3D(scene, renderer, r, c, startOpen = false){
   }
 }
 
-export function buildGrandDoor(scene, r, c, w){
+export function buildGrandDoor(scene, renderer, r, c, w){
   const loader = new THREE.TextureLoader();
   const tex = loader.load('public/assets/tilesets/furniture-grand_door.png');
   tex.magFilter = THREE.NearestFilter;
@@ -97,7 +97,7 @@ export function buildGrandDoor(scene, r, c, w){
   dL.position.set(W/4, 0, 0);
   pivotL.add(dL);
   pivotL.position.set(-W/2 + 0.05, H/2, 0);
-  pivotL.rotation.y = Math.PI / 3.5;
+  pivotL.rotation.y = 0; // closed
   group.add(pivotL);
 
   // Right door panel
@@ -108,9 +108,18 @@ export function buildGrandDoor(scene, r, c, w){
   dR.position.set(-W/4, 0, 0);
   pivotR.add(dR);
   pivotR.position.set(W/2 - 0.05, H/2, 0);
-  pivotR.rotation.y = -Math.PI / 3.5;
+  pivotR.rotation.y = 0; // closed
   group.add(pivotR);
 
   group.position.set(c + fw/2, 0, r + 0.5);
+  group.userData = {r, c, fw, isOpen: false, pivotL, pivotR};
   scene.add(group);
+
+  // Block entrance tiles (closed by default)
+  for(let dc = 0; dc < fw; dc++){
+    if(c + dc < COLS) MAP[r][c + dc] = WALL;
+  }
+
+  // Store reference for opening later
+  if(!renderer.grandDoor) renderer.grandDoor = group;
 }

@@ -7,7 +7,7 @@ import {
   DECO_TORCH, DECO_PUDDLE,
   DECO_FALLEN_BOOKS, DECO_KITCHEN_UTENSILS, DECO_BROKEN_TOYS,
   DECO_BROKEN_MIRROR, DECO_WATER_PUDDLE,
-  MAP, DECO,
+  MAP, DECO, GROUND_RAW,
   COLS, ROWS, setCOLS, setROWS,
   state, spawnZ,
   setFurnitureList, setSurpriseSpawns, setBossSpawn,
@@ -42,16 +42,20 @@ export async function loadMapJSON(url) {
   // Init arrays
   MAP.length = 0;
   DECO.length = 0;
+  GROUND_RAW.length = 0;
   for(let r=0; r<rows; r++){
     MAP[r] = new Array(cols).fill(GND);
     DECO[r] = new Array(cols).fill(DECO_NONE);
+    GROUND_RAW[r] = new Array(cols).fill(GND);
   }
 
-  // Ground
+  // Ground — store raw values AND set MAP
   for(let r=0; r<rows; r++){
     for(let c=0; c<cols; c++){
       const v = json.ground[r][c];
-      MAP[r][c] = groundJsonToInternal[v] ?? GND;
+      const tile = groundJsonToInternal[v] ?? GND;
+      MAP[r][c] = tile;
+      GROUND_RAW[r][c] = tile; // preserved even after walls overwrite MAP
     }
   }
 
@@ -90,10 +94,21 @@ export async function loadMapJSON(url) {
     const fw = f.w || 1, fh = f.h || 1;
     newFurnitureList.push({type: f.type, r: f.r, c: f.c, w: fw, h: fh, grand: f.grand || false});
     if(f.type === 'chandelier') continue; // chandeliers hang from ceiling, no collision
-    for(let dr=0; dr<fh; dr++){
-      for(let dc=0; dc<fw; dc++){
-        const rr = f.r+dr, cc = f.c+dc;
-        if(rr<rows && cc<cols) MAP[rr][cc] = FURNITURE;
+
+    // Extended collision for stairs and piano (3D objects extend north/upward)
+    let collOffset = 0; // extra rows northward
+    if(f.type === 'stairs_broken' || f.type === 'stairs_broken_left'){
+      collOffset = 2; // ramp extends 2 tiles north
+    } else if(f.type === 'piano'){
+      collOffset = 1; // piano extends 1 tile north
+    }
+
+    for(let dr = -collOffset; dr < fh; dr++){
+      for(let dc = 0; dc < fw; dc++){
+        const rr = f.r + dr, cc = f.c + dc;
+        if(rr >= 0 && rr < rows && cc < cols && MAP[rr][cc] !== WALL) {
+          MAP[rr][cc] = FURNITURE;
+        }
       }
     }
   }
