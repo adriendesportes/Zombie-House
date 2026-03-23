@@ -61,9 +61,51 @@ export function buildDoor3D(scene, renderer, r, c, startOpen = false){
   scene.add(group);
   renderer.doorMeshes.push(group);
 
+  // Glowing halo on both sides of closed door (light seeping through)
+  for(const side of [-1, 1]){
+    const haloGeo = new THREE.PlaneGeometry(
+      isHoriz ? 1.2 : 0.6,
+      isHoriz ? 0.6 : 1.2
+    );
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa44, transparent: true, opacity: 0.3,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.rotation.x = -Math.PI / 2;
+    halo.position.set(
+      isHoriz ? 0 : side * 0.6,
+      0.03,
+      isHoriz ? side * 0.6 : 0
+    );
+    group.add(halo);
+  }
+
+  // PointLight for warm glow on each side
+  const doorLight1 = new THREE.PointLight(0xffaa44, 1.5, 4);
+  doorLight1.position.set(
+    isHoriz ? 0 : 0.5,
+    0.3,
+    isHoriz ? 0.5 : 0
+  );
+  group.add(doorLight1);
+  const doorLight2 = new THREE.PointLight(0xffaa44, 1.5, 4);
+  doorLight2.position.set(
+    isHoriz ? 0 : -0.5,
+    0.3,
+    isHoriz ? -0.5 : 0
+  );
+  group.add(doorLight2);
+
+  group.userData.doorLights = [doorLight1, doorLight2];
+
   if(startOpen){
     doorPivot.rotation.y = isHoriz ? -Math.PI / 2 : -Math.PI / 2;
     MAP[r][c] = DOOR;
+    doorLight1.visible = false;
+    doorLight2.visible = false;
+    // Hide halos
+    group.children.forEach(ch => { if(ch.material && ch.material.opacity < 1) ch.visible = false; });
   } else {
     MAP[r][c] = WALL;
   }

@@ -76,10 +76,31 @@
       pointer-events: none;
     }
     #overlay { font-family: Arial, sans-serif; color: #fff; text-align: center; }
+    #healthbars-container {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 5; overflow: hidden;
+    }
+    .hpbar {
+      position: absolute; pointer-events: none;
+      transform: translate(-50%, -100%);
+    }
+    .hpbar-bg {
+      width: 40px; height: 5px; background: #333; border-radius: 2px;
+      border: 1px solid #222;
+    }
+    .hpbar-fill {
+      height: 100%; border-radius: 1px; transition: width 0.1s;
+    }
+    .hpbar-name {
+      font: bold 8px Arial; color: #fff; text-align: center;
+      text-shadow: 0 0 3px #000, 0 1px 2px #000;
+      margin-bottom: 1px;
+    }
   </style>
 </head>
 <body>
 <canvas id="three-canvas"></canvas>
+<div id="healthbars-container"></div>
 
 <!-- UI Overlay -->
 <div id="ui">

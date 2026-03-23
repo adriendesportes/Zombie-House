@@ -1,6 +1,40 @@
 // ==================== CHARACTERS (player + zombies) ====================
 import * as THREE from 'three';
 
+// Create a health bar as a Sprite with canvas texture (always faces camera)
+function createHealthBar(width, height, color){
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 8;
+  const ctx = canvas.getContext('2d');
+  // Background
+  ctx.fillStyle = '#333333';
+  ctx.fillRect(0, 0, 64, 8);
+  // Fill
+  ctx.fillStyle = color;
+  ctx.fillRect(1, 1, 62, 6);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  const mat = new THREE.SpriteMaterial({map: tex, transparent: true, depthWrite: false});
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(width, height, 1);
+  sprite.center.set(0.5, 0.5);
+  return {sprite, canvas, ctx, tex};
+}
+
+function updateHealthBar(hb, ratio){
+  const ctx = hb.ctx;
+  ctx.clearRect(0, 0, 64, 8);
+  // Background
+  ctx.fillStyle = '#333333';
+  ctx.fillRect(0, 0, 64, 8);
+  // Fill
+  ctx.fillStyle = hb.fillColor;
+  ctx.fillRect(1, 1, Math.max(0, 62 * ratio), 6);
+  hb.tex.needsUpdate = true;
+}
+
 export function buildPlayer(){
   const group = new THREE.Group();
 
@@ -34,21 +68,7 @@ export function buildPlayer(){
   sprite.center.set(0.5, 0.3);
   group.add(sprite);
 
-  // Health bar background
-  const hbBgGeo = new THREE.PlaneGeometry(0.5, 0.07);
-  const hbBgMat = new THREE.MeshBasicMaterial({color: 0x333333, side: THREE.DoubleSide, depthWrite: false, transparent: true});
-  const hbBg = new THREE.Mesh(hbBgGeo, hbBgMat);
-  hbBg.position.y = 1.45;
-  group.add(hbBg);
-
-  // Health bar fill
-  const hbGeo = new THREE.PlaneGeometry(0.48, 0.05);
-  const hbMat = new THREE.MeshBasicMaterial({color: 0x44dd44, side: THREE.DoubleSide, depthWrite: false, transparent: true});
-  const hb = new THREE.Mesh(hbGeo, hbMat);
-  hb.position.y = 1.45;
-  group.add(hb);
-
-  return {group, hb, hbMat, sprite, spriteMat, sheets, currentSheet: 'idleBack'};
+  return {group, sprite, spriteMat, sheets, currentSheet: 'idleBack'};
 }
 
 export function buildZombie(z){
@@ -85,21 +105,7 @@ export function buildZombie(z){
   sprite.center.set(0.5, 0.3);
   group.add(sprite);
 
-  // Health bar background
-  const hbBgGeo = new THREE.PlaneGeometry(0.44, 0.065);
-  const hbBgMat = new THREE.MeshBasicMaterial({color: 0x333333, side: THREE.DoubleSide, depthWrite: false, transparent: true});
-  const hbBg = new THREE.Mesh(hbBgGeo, hbBgMat);
-  hbBg.position.y = 1.35;
-  group.add(hbBg);
-
-  // Health bar fill
-  const hbGeo = new THREE.PlaneGeometry(0.42, 0.05);
-  const hbMat = new THREE.MeshBasicMaterial({color: 0xdd4444, side: THREE.DoubleSide, depthWrite: false, transparent: true});
-  const hb = new THREE.Mesh(hbGeo, hbMat);
-  hb.position.y = 1.35;
-  group.add(hb);
-
-  return {group, hb, hbMat, sprite, spriteMat, sheets, currentSheet: 'idleFront'};
+  return {group, sprite, spriteMat, sheets, currentSheet: 'idleFront'};
 }
 
 export function makeShadow(){

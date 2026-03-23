@@ -47,6 +47,9 @@ export function tryOpenDoor(){
       if(pivot){
         pivot.rotation.y = dd.isHoriz ? -Math.PI / 2 : -Math.PI / 2;
       }
+      // Hide halos and lights when door opens
+      if(dd.doorLights) dd.doorLights.forEach(l => l.visible = false);
+      dg.children.forEach(ch => { if(ch.material && ch.material.opacity < 1) ch.visible = false; });
       playSFX(80, 0.3, 'sawtooth');
       setTimeout(() => playSFX(60, 0.2, 'sine'), 100);
       return true;

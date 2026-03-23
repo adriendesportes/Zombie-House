@@ -115,6 +115,12 @@ export class ThreeRenderer {
 
     this.playerMesh = buildPlayer();
     this.scene.add(this.playerMesh.group);
+
+    // HTML health bars
+    this._hbContainer = document.getElementById('healthbars-container');
+    this._hbElements = [];
+    this._playerHB = this._createHtmlHB('Angel', '#44dd44');
+    this._hbContainer.appendChild(this._playerHB.el);
     this.playerShadow = makeShadow();
     this.scene.add(this.playerShadow);
     this.playerHalo = makeHalo(0x44cc44);
@@ -145,7 +151,9 @@ export class ThreeRenderer {
     this.scene.add(sh);
     const hl = makeHalo(0xcc3333);
     this.scene.add(hl);
-    this.zombieMeshes.push({group: zm.group, parts: zm, shadow: sh, halo: hl, zRef: z});
+    const hbEl = this._createHtmlHB(z.name || 'Zombie', '#dd4444');
+    this._hbContainer.appendChild(hbEl.el);
+    this.zombieMeshes.push({group: zm.group, parts: zm, shadow: sh, halo: hl, zRef: z, hbEl});
   }
 
   _addZombieMesh(z){
@@ -153,6 +161,24 @@ export class ThreeRenderer {
   }
 
   // ---- Main render method ----
+  _createHtmlHB(name, color){
+    const el = document.createElement('div');
+    el.className = 'hpbar';
+    el.innerHTML = `<div class="hpbar-name">${name}</div><div class="hpbar-bg"><div class="hpbar-fill" style="width:100%;background:${color}"></div></div>`;
+    const fill = el.querySelector('.hpbar-fill');
+    return {el, fill, color};
+  }
+
+  _projectToScreen(worldPos){
+    const v = worldPos.clone();
+    v.project(this.camera);
+    return {
+      x: (v.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-v.y * 0.5 + 0.5) * window.innerHeight,
+      visible: v.z < 1
+    };
+  }
+
   render(dt){
     const s = dt/1000;
     const t = state.gameTime;
@@ -233,6 +259,24 @@ export class ThreeRenderer {
       }
     }
 
+    // Door halo pulse
+    for(const dg of this.doorMeshes){
+      const dd = dg.userData;
+      if(dd.isOpen) continue;
+      // Pulse halos
+      const pulse = 0.2 + Math.sin(t * 2.5 + dd.r * 1.3 + dd.c * 0.7) * 0.15;
+      dg.children.forEach(ch => {
+        if(ch.material && ch.material.opacity !== undefined && ch.material.transparent && !(ch instanceof THREE.PointLight)){
+          ch.material.opacity = pulse;
+        }
+      });
+      // Pulse lights
+      if(dd.doorLights){
+        const lightPulse = 1.2 + Math.sin(t * 3 + dd.c * 2) * 0.5;
+        dd.doorLights.forEach(l => l.intensity = lightPulse);
+      }
+    }
+
     // Torch flicker
     for(const torch of this.torchLights){
       const flicker = 0.8 + Math.sin(t*8 + torch.r*3 + torch.c*7)*0.12 + Math.sin(t*13 + torch.c*5)*0.08;
@@ -274,12 +318,13 @@ export class ThreeRenderer {
     const frame = p.frame % numFrames;
     pm.spriteMat.map.offset.set(frame / numFrames, 0);
 
-    // Health bar
+    // HTML health bar — project to screen
     const pRatio = p.hp/p.maxHp;
-    pm.hb.scale.x = Math.max(0.001, pRatio);
-    pm.hb.position.x = -(0.24 * (1-pRatio));
-    pm.hb.lookAt(this.camera.position);
-    pm.hb.parent.children[pm.hb.parent.children.length-2]?.lookAt?.(this.camera.position);
+    this._playerHB.fill.style.width = (pRatio * 100) + '%';
+    const pScreen = this._projectToScreen(new THREE.Vector3(p.x, 1.6, p.y));
+    this._playerHB.el.style.left = pScreen.x + 'px';
+    this._playerHB.el.style.top = pScreen.y + 'px';
+    this._playerHB.el.style.display = pScreen.visible ? 'block' : 'none';
 
     // Player shadow and halo
     this.playerShadow.position.set(p.x, 0.01, p.y);
@@ -294,6 +339,7 @@ export class ThreeRenderer {
         zm.group.visible = false;
         zm.shadow.visible = false;
         zm.halo.visible = false;
+        if(zm.hbEl) zm.hbEl.el.style.display = 'none';
         continue;
       }
       zm.group.visible = true;
@@ -326,11 +372,16 @@ export class ThreeRenderer {
         zp.spriteMat.map.offset.set(zFrame / zNumFrames, 0);
       }
 
-      // Health bar
+      // HTML health bar — project to screen
       const zRatio = z.hp/z.maxHp;
-      zp.hb.scale.x = Math.max(0.001, zRatio);
-      zp.hb.position.x = -(0.21*(1-zRatio));
-      zp.hb.lookAt(this.camera.position);
+      if(zm.hbEl){
+        zm.hbEl.fill.style.width = (zRatio * 100) + '%';
+        const hbY = z.isBoss ? 1.8 : 1.4;
+        const zScreen = this._projectToScreen(new THREE.Vector3(z.x, hbY, z.y));
+        zm.hbEl.el.style.left = zScreen.x + 'px';
+        zm.hbEl.el.style.top = zScreen.y + 'px';
+        zm.hbEl.el.style.display = (z.hp > 0 && zScreen.visible) ? 'block' : 'none';
+      }
     }
 
     // Projectiles
