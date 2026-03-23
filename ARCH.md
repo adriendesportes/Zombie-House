@@ -2,29 +2,29 @@
 
 ## 1. Choix technologique
 
-### Deux prototypes independants
+### Renderer unique : Three.js
 
-Le projet est actuellement organise en deux renderers distincts, chacun dans un seul fichier HTML autonome. Il n'y a pas de bundler, pas de framework de jeu, pas de Tiled Map Editor.
+Le jeu utilise un seul renderer 3D base sur Three.js charge via CDN (ES modules). Pas de bundler, pas de framework de jeu.
 
-| Critere              | 2D Canvas (test-map.html)           | 3D Three.js (test-map-3d.html)         |
-| -------------------- | ------------------------------------ | --------------------------------------- |
-| Rendu                | HTML5 Canvas 2D natif               | Three.js (ES modules CDN)              |
-| Shading              | Dessin manuel, palette fixe         | MeshToonMaterial, cel-shading          |
-| Murs                 | Face top + face front dessinee       | BoxGeometry InstancedMesh              |
-| Personnages          | Sprite sheets PNG frame-by-frame    | Sprite billboard (PNG) + primitives    |
-| Dependances          | Aucune                              | Three.js CDN uniquement                |
-| Cible principale     | Gameplay, logique, mobile           | Exploration visuelle                   |
+| Critere              | Choix                                   |
+| -------------------- | ---------------------------------------- |
+| Rendu                | Three.js r162 (ES modules CDN)           |
+| Shading              | MeshToonMaterial, cel-shading            |
+| Murs                 | BoxGeometry avec textures atlas          |
+| Personnages          | Sprite billboard (PNG sheets)            |
+| Eclairage            | AmbientLight + DirectionalLight + PointLights |
+| Dependances          | Three.js CDN uniquement                  |
+| Audio                | Web Audio API (procedural)               |
 
-### Stack complet
+### Stack
 
 ```
-2D renderer   — HTML5 Canvas 2D pur (test-map.html)
-3D renderer   — Three.js r165+ (ES modules, CDN) (test-map-3d.html)
-Tiles         — Python + Pillow (generation procedurale d'atlas PNG)
-Sprites       — Python + Pillow (generation procedurale) ou Gemini (LLM) + slicing Python
-Maps          — JSON manuel dans public/assets/maps/
+Renderer      — Three.js r162 (ES modules, CDN unpkg)
+Code          — ES modules natifs (pas de bundler)
+Tiles         — Python + Pillow (generation procedurale d'atlas PNG 128x128)
+Sprites       — Gemini (LLM) + slicing Python, ou procedural Python
+Maps          — JSON dans public/assets/maps/
 Sauvegarde    — localStorage
-PWA           — optionnel, mobile install
 ```
 
 ---
@@ -33,75 +33,61 @@ PWA           — optionnel, mobile install
 
 ```
 zombie-house/
+├── index.html                              # HTML/CSS minimal + importmap Three.js
+├── src/                                    # Code source ES modules
+│   ├── main.js                             # Point d'entree, game loop
+│   ├── state.js                            # Etat global, constantes, MAP, DECO, hash(), spawnZ()
+│   ├── input.js                            # Clavier, joystick, touch, getMove()
+│   ├── update.js                           # update(), collision, IA zombies, projectiles
+│   ├── audio.js                            # Web Audio, musique procedurale, SFX
+│   ├── map-loader.js                       # loadMapJSON(), parsing JSON
+│   ├── hud.js                              # updateHUD(), overlay victoire/game over
+│   └── renderer/
+│       ├── ThreeRenderer.js                # Scene, camera, eclairage, fog, render()
+│       ├── ground.js                       # Sol texture depuis atlas PNG
+│       ├── walls.js                        # Murs 3D (exterieur pierre + interieur varie)
+│       ├── doors.js                        # Portes 3D avec ouverture animee
+│       ├── furniture.js                    # Escaliers 3D, chandeliers, meubles BoxGeometry
+│       ├── trees.js                        # Foret (sapins, chenes, morts, buissons)
+│       ├── water.js                        # Riviere animee, pont-levis
+│       ├── characters.js                   # Joueur + zombies (sprite billboard)
+│       ├── effects.js                      # Projectiles, particules, chauves-souris
+│       └── torches.js                      # Torches murales avec PointLight
 ├── Design/
 │   ├── Personnages/
-│   │   ├── angel_monster.png               # Illustration menu haute resolution
+│   │   ├── angel_monster.png               # Illustration menu
 │   │   ├── angle_monster_vue_dessus.png
-│   │   └── sprites/                        # Sorties brutes LLM avant slicing
-│   ├── Tilesets/                           # Tentatives de tilesets LLM (reference)
+│   │   └── sprites/                        # Sorties brutes LLM
 │   └── Maps/
 │       └── level_1_entree_manoir.png       # Image de reference niveau 1
 ├── public/assets/
 │   ├── sprites/
-│   │   ├── heroes/
-│   │   │   └── angel-monster/
-│   │   │       ├── idle-front.png
-│   │   │       ├── idle-back.png
-│   │   │       ├── walk-front.png
-│   │   │       └── walk-back.png
-│   │   └── enemies/
-│   │       └── zombie-normal/
-│   │           ├── idle-front.png
-│   │           ├── idle-back.png
-│   │           ├── walk-front.png
-│   │           └── walk-back.png
+│   │   ├── heroes/angel-monster/           # idle/walk front+back PNG
+│   │   └── enemies/zombie-normal/          # idle/walk front+back PNG
 │   ├── tilesets/
-│   │   ├── ground-atlas.png                # 7 types de sol (128x128 par tile)
-│   │   ├── wall-front-atlas.png            # 5 variants de face avant
-│   │   ├── wall-top-atlas.png              # 5 variants de face superieure
+│   │   ├── ground-atlas.png                # 9 sols (128x128 chacun)
+│   │   ├── wall-front-atlas.png            # 9 variantes murs interieurs
+│   │   ├── wall-top-atlas.png              # 9 variantes dessus murs
+│   │   ├── wall-exterior-atlas.png         # 5 variantes pierre grise exterieur
+│   │   ├── wall-exterior-top-atlas.png     # 5 variantes dessus exterieur
 │   │   ├── wall-dest-atlas.png             # 3 murs destructibles
-│   │   ├── door-atlas.png                  # 3 variants de portes
-│   │   ├── deco-atlas.png                  # 10 types de decorations
-│   │   ├── bush.png                        # Sprite de buisson individuel
-│   │   └── tiles/                          # Tiles individuelles 32x32 (legacy)
+│   │   ├── door-atlas.png                  # 3 variantes de portes
+│   │   ├── deco-atlas.png                  # 15 decorations
+│   │   ├── bush.png                        # Buisson
+│   │   ├── tree-pine.png                   # Sapin
+│   │   ├── tree-oak.png                    # Chene
+│   │   ├── tree-spooky.png                 # Arbre mort
+│   │   ├── bush-thorny.png                 # Buisson epineux
+│   │   ├── bush-fern.png                   # Fougere
+│   │   ├── bush-dead.png                   # Buisson mort
+│   │   └── furniture-*.png                 # Meubles individuels
 │   └── maps/
-│       └── level-1.json
-│   └── audio/
-│       ├── music/
-│       │   ├── menu-theme.mp3
-│       │   ├── gameplay-exploration.mp3
-│       │   ├── gameplay-combat.mp3
-│       │   ├── boss-fight.mp3
-│       │   ├── victory.mp3
-│       │   └── game-over.mp3
-│       └── sfx/
-│           ├── player-footstep-wood.mp3
-│           ├── player-footstep-stone.mp3
-│           ├── player-attack-whoosh.mp3
-│           ├── player-special-electric.mp3
-│           ├── player-hit.mp3
-│           ├── player-death.mp3
-│           ├── zombie-groan.mp3
-│           ├── zombie-spawn-surprise.mp3
-│           ├── zombie-hit.mp3
-│           ├── zombie-death.mp3
-│           ├── boss-roar.mp3
-│           ├── door-creak.mp3
-│           ├── button-click.mp3
-│           ├── ambiance-manor.mp3
-│           ├── ui-click.mp3
-│           ├── ui-upgrade.mp3
-│           ├── ui-level-unlock.mp3
-│           └── ui-points.mp3
+│       ├── level-1.json                    # Map legacy (fallback)
+│       └── level-1-manoir.json             # Niveau 1 complet (40x32, 7 pieces)
 ├── scripts/
-│   ├── generate_tiles_hq.py                # Generateur d'atlas 128x128 (actif)
-│   ├── generate_tiles.py                   # Generateur 32x32 (legacy)
+│   ├── generate_tiles_hq.py                # Generateur atlas 128x128
 │   ├── generate_zombie_sprites.py          # Sprites zombie proceduraux
-│   ├── slice_sprite.py                     # Decoupe sprites LLM (fond blanc → frames)
-│   └── slice_tileset*.py                   # Scripts de decoupe de tilesets
-├── test-map.html                           # Prototype renderer 2D Canvas
-├── test-map-3d.html                        # Prototype renderer Three.js
-├── test-animation.html                     # Apercu des animations de sprites
+│   └── slice_sprite.py                     # Decoupe sprites LLM
 ├── PRD.md
 ├── ARCH.md
 ├── epic_suivi.md
@@ -110,42 +96,43 @@ zombie-house/
 
 ---
 
-## 3. Rendu 2D Canvas
+## 3. Systeme de modules ES
 
-### 3.1 Grille et coordonnees
+### Architecture modulaire
 
-- Tiles carrees de **40x40 px** (taille affichage, pas la taille source de l'atlas).
-- Origine (0,0) en haut a gauche. X vers la droite, Y vers le bas.
-- Les murs occupent 40x40 en face superieure et ajoutent une **face avant de 40x14 px** qui depasse en dessous de la tile (cette face est rendue dans le Y-sort).
-
-### 3.2 Pipeline de rendu (8 passes)
+Le code est organise en modules ES natifs sans bundler. Three.js est charge via CDN avec un `importmap` dans index.html.
 
 ```
-1. Ground pass       : Toutes les tiles de sol, de gauche a droite, haut en bas.
-2. Decorations       : Decorations au sol (os, flaques, etc.) sous les entites.
-3. Wall shadows      : Ombres projetees par les murs (rectangle sombre sous la face avant).
-4. Y-sorted entities : Murs (face top + face avant), buissons, personnages, portes.
-                       Trie par coordonnee Y (bas de l'entite), du plus petit au plus grand.
-5. Projectiles       : Bras projetes, boules electriques.
-6. Particles         : Effets de particules (impact, explosion, fumee).
-7. Damage popups     : Nombres de degats flottants.
-8. UI overlay        : Coeurs, score, joystick virtuel, bouton attaque.
+index.html
+  └── <script type="module" src="src/main.js">
+
+src/main.js           ← point d'entree, game loop
+  ├── state.js        ← etat global (state, MAP, DECO, constantes, hash, spawnZ)
+  ├── input.js        ← setupInput(), getMove()
+  ├── update.js       ← update(), collision, IA, projectiles, triggers
+  ├── audio.js        ← Web Audio, SFX proceduraux
+  ├── map-loader.js   ← loadMapJSON()
+  ├── hud.js          ← updateHUD(), overlay
+  └── renderer/
+      └── ThreeRenderer.js
+          ├── ground.js       ← sol texture canvas depuis atlas
+          ├── walls.js        ← murs BoxGeometry (exterieur + interieur)
+          ├── doors.js        ← portes 3D animees
+          ├── furniture.js    ← escaliers, chandeliers, meubles
+          ├── trees.js        ← foret procedurale
+          ├── water.js        ← riviere, pont-levis
+          ├── characters.js   ← sprites billboard joueur/zombies
+          ├── effects.js      ← projectiles, particules, chauves-souris
+          └── torches.js      ← torches murales + PointLight
 ```
 
-### 3.3 Y-sorting
+### Principes
 
-Chaque entite expose une valeur `sortY` (generalement le bas du sprite ou le milieu du personnage). La passe 4 trie toutes les entites par `sortY` croissant avant le dessin. Cela permet a un personnage devant un mur d'etre dessine apres le mur et donc de sembler en avant.
-
-### 3.4 Variation deterministe des tiles
-
-Pour eviter la repetition visuelle sans aleatoire au runtime, chaque position de tile utilise un hash de sa coordonnee (x, y) pour selectionner une variante dans l'atlas. Le rendu est identique a chaque chargement.
-
-```javascript
-function tileVariant(x, y, numVariants) {
-  const hash = (x * 73856093) ^ (y * 19349663);
-  return Math.abs(hash) % numVariants;
-}
-```
+- **state.js** est le hub central : tous les modules importent depuis ce fichier
+- **Pas de dependances circulaires** : state.js n'importe rien
+- **Mutabilite partagee** : variables `let` modifiees via fonctions setter
+- **Renderer passe par reference** : update.js recoit le renderer via `setRenderer()`
+- **Three.js via importmap** : `import * as THREE from 'three'` resout vers CDN
 
 ---
 
@@ -153,86 +140,112 @@ function tileVariant(x, y, numVariants) {
 
 ### 4.1 Camera
 
-- `PerspectiveCamera`, FOV ~50, positionnee au-dessus et derriere le joueur.
-- Suivi du joueur par interpolation lineaire (`lerp`) sur la cible de la camera.
+- `PerspectiveCamera` FOV ~50, au-dessus et derriere le joueur
+- Suivi par interpolation lineaire (lerp)
 
 ### 4.2 Sol
 
-- `PlaneGeometry` unique couvrant la map entiere.
-- Texture generee via `CanvasTexture` (dessin des tiles sur un canvas offscreen).
+- `PlaneGeometry` unique couvrant la map
+- `CanvasTexture` generee en dessinant chaque tile depuis les atlas PNG
+- Tiles eau peintes en noir (les water planes 3D couvrent par-dessus)
 
 ### 4.3 Murs
 
-- `InstancedMesh` avec `BoxGeometry` parametree en hauteur.
-- Chaque mur est une instance avec sa matrice de transformation.
-- Materiau : `MeshToonMaterial`.
+- BoxGeometry individuel par mur avec textures atlas sur chaque face
+- Murs exterieurs : 5 variantes pierre grise coherente (`wall-exterior-atlas`)
+- Murs interieurs : 9 variantes diversifiees (`wall-front-atlas`)
+- Detection exterieur/interieur par position (perimetre rows/cols)
 
-### 4.4 Personnages
+### 4.4 Portes
 
-- Player : sprite billboard (plane qui fait face a la camera) avec la PNG du sprite sheet.
-- Zombies : geometries low-poly primitives (box/capsule) avec MeshToonMaterial.
+- Cadre en bois (2 montants + linteau) avec panneau PlaneGeometry texture
+- Fermees par defaut, ouverture par action (espace/clic) quand le joueur est proche
+- Le panneau pivote sur une charniere
+- Grand porte d'entree : double battant avec texture `grand_door.png`
 
-### 4.5 Eclairage
+### 4.5 Meubles
 
-- `AmbientLight` pour la lumiere de base.
-- `DirectionalLight` pour les ombres globales.
-- `PointLight` positionnes aux torches decoratives.
+- BoxGeometry avec texture atlas sur la face du dessus
+- Escaliers 3D : marches individuelles, certaines cassees avec debris
+- Chandeliers : TorusGeometry + bougies + PointLight, suspendus au plafond
+- Hauteurs realistes par type (lit 0.35, etagere 0.8, armoire 0.9)
 
-### 4.6 Contours (cel-shading outlines)
+### 4.6 Foret exterieure
 
-- Technique "inverted hull" : le mesh est duplique, les faces sont inversees, le materiau est noir opaque avec `side: BackSide`, et la geometrie est legrement agrandie. Cela produit un contour epais visible.
+- 3 types d'arbres (sapin, chene, mort) + 4 types de buissons
+- 2-4 sprites par tile pour densite, tailles variees
+- Tint sombre (0x404838) pour ambiance nuit
+- Filtrage : aucun arbre sur eau, murs, interieur, ou pres de l'entree
 
-### 4.7 Effets
+### 4.7 Ambiance nuit
 
-- Projectiles : sphere avec trail (suite de spheres degressives en opacite).
-- Particules : pool pre-alloue de `Sprite` Three.js recycles.
-- Popups de degats : `Sprite` Three.js avec texture texte generee sur canvas.
+- AmbientLight bleu sombre (0x283848)
+- DirectionalLight clair de lune (0x7888a0)
+- FogExp2 pour assombrir les distances
+- Sol herbe nuit (vert tres fonce)
+- Chauves-souris animees qui traversent la scene
 
-### 4.8 UI
+### 4.8 Eau et pont
 
-- Overlay HTML positionne par-dessus le canvas Three.js.
-- Joystick virtuel et bouton attaque en HTML/CSS pour les mobiles.
-- Compteurs (coeurs, score) en HTML.
+- PlaneGeometry par tile d'eau avec ondulation vertex sinusoidale
+- Riviere/douves autour du manoir
+- Pont-levis en bois avec planches et rambardes
+
+### 4.9 Eclairage
+
+- Torches fixees aux murs avec support 3D + flamme animee
+- PointLight par torche (intensite 2.5, portee 8)
+- Grosses torches d'entree (intensite 4.0, portee 12)
+- Chandeliers avec PointLight (intensite 3.5-6.0)
+
+### 4.10 Personnages
+
+- Sprite billboard (toujours face camera) avec PNG sheets
+- 4 sheets par personnage : idle-front, idle-back, walk-front, walk-back
+- Direction trackee par flag `facingDown`
+- Bob animation sinusoidal
+- Ombre (CircleGeometry) + halo colore (vert joueur, rouge ennemi)
+
+### 4.11 Effets
+
+- Projectiles : SphereGeometry avec trail (spheres degressives)
+- Particules : pool pre-alloue recycle
+- Popups degats : Sprite avec CanvasTexture
+- Destruction murs : petits cubes ejectes
 
 ---
 
 ## 5. Format des maps (JSON)
 
-Les maps sont definies manuellement en JSON. Pas de Tiled Map Editor.
-
 ```json
 {
-  "width": 30,
-  "height": 50,
-  "tileSize": 40,
-  "layers": {
-    "ground": [
-      [1, 1, 1, 0, 0],
-      [1, 1, 0, 0, 0]
-    ],
-    "walls": [
-      [0, 0, 2, 2, 2],
-      [0, 0, 2, 0, 2]
-    ],
-    "decorations": [
-      [0, 3, 0, 0, 0],
-      [0, 0, 0, 0, 0]
-    ]
+  "name": "Manoir Hante - Etage 1",
+  "cols": 40, "rows": 32,
+  "ground": [[...32 rows of 40 values...]],
+  "walls": {
+    "indestructible": [[r,c], ...],
+    "destructible": [[r,c], ...]
   },
-  "objects": [
-    { "type": "player_spawn", "x": 3, "y": 45 },
-    { "type": "zombie_normal", "x": 10, "y": 20 },
-    { "type": "zombie_boss", "x": 15, "y": 5 },
-    { "type": "door", "x": 12, "y": 30, "trigger": "switch_1" },
-    { "type": "surprise_spawn", "subtype": "zombie_rage", "x": 8, "y": 15,
-      "trigger": "proximity", "animation": "fall_ceiling" }
-  ]
+  "doors": [[r,c], ...],
+  "furniture": [
+    {"type": "bed", "r": 7, "c": 5, "w": 2, "h": 1},
+    {"type": "chandelier", "r": 21, "c": 20, "w": 1, "h": 1, "grand": true}
+  ],
+  "decorations": [
+    {"type": "torch", "r": 5, "c": 4},
+    {"type": "blood", "r": 13, "c": 6}
+  ],
+  "bushes": [[r,c], ...],
+  "spawns": {
+    "player": {"col": 20, "row": 26},
+    "zombies": [{"col": 6, "row": 18, "type": "normal"}],
+    "surprises": [{"col": 8, "row": 24, "type": "normal", "trigger": {"row": 20, "col": 8, "radius": 3}}],
+    "boss": {"col": 34, "row": 9, "trigger": {"furniture": "wardrobe", "r": 8, "c": 33}}
+  }
 }
 ```
 
-- Les couches `ground`, `walls`, `decorations` sont des tableaux 2D d'indices de tiles (0 = vide).
-- Les indices referent aux colonnes des atlas PNG correspondants.
-- Les objets definissent les entites dynamiques, spawn points et triggers.
+Types de sol (indices ground) : 0=herbe, 1=pierre, 2=terre, 3=gravier, 4=bois, 5=tapis, 6=eau, 7=porte, 8=carrelage, 9=tapis use
 
 ---
 
@@ -240,318 +253,59 @@ Les maps sont definies manuellement en JSON. Pas de Tiled Map Editor.
 
 ### 6.1 Tiles (Python + Pillow)
 
-Le script `scripts/generate_tiles_hq.py` genere les atlas PNG a 128x128 px par tile de maniere procedurale. Chaque atlas est une bande horizontale de N tiles.
-
 ```
 python scripts/generate_tiles_hq.py
-→ public/assets/tilesets/ground-atlas.png      (7 tiles)
-→ public/assets/tilesets/wall-front-atlas.png  (5 tiles)
-→ public/assets/tilesets/wall-top-atlas.png    (5 tiles)
-→ public/assets/tilesets/wall-dest-atlas.png   (3 tiles)
-→ public/assets/tilesets/door-atlas.png        (3 tiles)
-→ public/assets/tilesets/deco-atlas.png        (10 tiles)
+→ ground-atlas.png (9 sols), wall-front-atlas.png (9 murs),
+  wall-exterior-atlas.png (5 pierres grises), wall-dest-atlas.png (3 destructibles),
+  door-atlas.png (3 portes), deco-atlas.png (15 decos),
+  tree-*.png (3 arbres), bush-*.png (4 buissons), furniture-*.png (10 meubles)
 ```
 
-Le renderer charge ces atlas et extrait chaque tile par decalage (`sourceX = tileIndex * 128`), puis la redimensionne a 40x40 px (ou 40x14 px pour la face avant).
-
-### 6.2 Sprites de personnages (pipeline LLM + slicing)
+### 6.2 Sprites personnages
 
 ```
-1. Generation via Gemini (LLM) : personnage sur fond blanc, vue de face ou de dos.
-2. scripts/slice_sprite.py     : suppression du fond blanc, detection des frames,
-                                 assemblage en sprite sheet PNG transparent.
-3. Resultat                    : public/assets/sprites/heroes/angel-monster/idle-front.png, etc.
+1. Gemini (LLM) : personnage sur fond blanc
+2. scripts/slice_sprite.py : suppression fond, detection frames, assembly PNG
+3. Resultat : public/assets/sprites/heroes/angel-monster/*.png
 ```
 
-### 6.3 Sprites zombies (Python procedural)
+### 6.3 Sprites zombies
 
 ```
 python scripts/generate_zombie_sprites.py
-→ public/assets/sprites/enemies/zombie-normal/idle-front.png
-→ public/assets/sprites/enemies/zombie-normal/idle-back.png
-→ public/assets/sprites/enemies/zombie-normal/walk-front.png
-→ public/assets/sprites/enemies/zombie-normal/walk-back.png
+→ public/assets/sprites/enemies/zombie-normal/*.png
 ```
 
 ---
 
-## 7. Architecture des entites (2D Canvas)
+## 7. Audio
 
-### 7.1 Hierarchie conceptuelle
-
-```
-Entity (base)
-├── props : x, y, width, height, sortY
-├── update(delta)
-└── draw(ctx)
-
-Player extends Entity
-├── stats      : hp, maxHp, power, speed, level
-├── facingDown : boolean (true = vue front, false = vue back)
-├── spriteSheet: { idleFront, idleBack, walkFront, walkBack }
-├── move(dx, dy)
-├── attack()           → cree un ArmProjectile vers la cible la plus proche
-└── specialAttack()    → cree un ElectricBall (si level 11, cooldown OK)
-
-Enemy extends Entity
-├── type      : 'normal' | 'medium' | 'rage' | 'boss'
-├── hp, maxHp, damage, speed, points
-├── facingDown: boolean
-└── update(delta) → pathfinding vers le joueur
-
-ZombieNormal extends Enemy
-ZombieMedium extends Enemy
-ZombieRage   extends Enemy  → charge en ligne droite
-ZombieBoss   extends Enemy  → patterns d'attaque
-
-Projectile extends Entity
-├── vx, vy, damage, range, traveled
-├── type : 'arm' | 'electric'
-└── update(delta) → deplacement, detection collision, expiration
-
-Particle extends Entity
-└── pool pre-alloue, recyclage apres duree de vie
-```
-
-### 7.2 Stats Angel Monster par niveau
+Web Audio API native. Musique procedurale (oscillateurs). SFX proceduraux (frequences + durees).
 
 ```javascript
-const ANGEL_MONSTER = {
-  baseStats: {
-    hp: 6,          // 3 coeurs = 6 demi-coeurs
-    power: 1,
-    speed: 150,     // px/sec
-    attackRange: 5, // tiles
-  },
-  levelBonus: {
-    power: 0.10,    // +10% par niveau
-    hp: 1,          // +1 demi-coeur par niveau
-  },
-  specialAttack: {
-    unlockLevel: 11,
-    cooldown: 15000, // ms
-    radius: 3,       // tiles
-    damage: 999,
-  },
-  upgradeCosts: [0, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
-};
+initAudio()     // cree AudioContext au premier input
+sfxShoot()      // sine 800Hz + square 600Hz
+sfxHit()        // sawtooth 200Hz
+sfxZombieDie()  // sawtooth 150Hz + sine 100Hz
+sfxPlayerHit()  // square 120Hz + sine 80Hz
+sfxVictory()    // 3 notes montantes (C-E-G)
+sfxGameOver()   // 3 notes descendantes
 ```
 
 ---
 
-## 8. Systeme d'input
-
-### 8.1 Desktop
-
-```javascript
-// Mouvement : ZQSD ou WASD
-// Attaque   : Espace ou clic gauche (auto-vise le zombie le plus proche)
-// Special   : (niveau 11 uniquement)
-
-window.addEventListener('keydown', e => { keys[e.code] = true; });
-window.addEventListener('keyup',   e => { keys[e.code] = false; });
-canvas.addEventListener('click',   () => player.attack());
-```
-
-### 8.2 Mobile
-
-- **Joystick virtuel gauche** : zone touch HTML positionnee en bas a gauche. Calcul du vecteur direction normalise depuis le centre du joystick.
-- **Bouton attaque droit** : zone touch HTML en bas a droite. Declenche `player.attack()` en continu pendant la pression.
-- **Bouton special** : apparait au niveau 11.
-- L'UI mobile est un overlay HTML sur le canvas.
-
-### 8.3 Detection de plateforme
-
-```javascript
-const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent)
-              || ('ontouchstart' in window);
-// Affiche joystick/boutons si mobile, masque sinon.
-```
-
----
-
-## 9. Game loop
-
-```javascript
-let lastTime = 0;
-
-function gameLoop(timestamp) {
-  const delta = (timestamp - lastTime) / 1000; // secondes
-  lastTime = timestamp;
-
-  // 1. Input
-  const { dx, dy } = getMovementInput();
-  player.move(dx * player.speed * delta, dy * player.speed * delta);
-
-  // 2. Attaque auto ou manuelle
-  if (isAttacking()) player.attack();
-  if (isSpecial() && player.level >= 11) player.specialAttack();
-
-  // 3. IA ennemis
-  for (const enemy of enemies) {
-    enemy.update(delta);
-  }
-
-  // 4. Projectiles
-  for (const proj of projectiles) {
-    proj.update(delta);
-  }
-
-  // 5. Collisions
-  checkProjectileVsEnemies();
-  checkEnemiesVsPlayer();
-  checkPlayerVsWalls();
-  checkPlayerVsDoors();
-
-  // 6. Spawns programmes
-  spawnManager.update(delta);
-
-  // 7. Conditions de fin
-  if (enemies.length === 0) triggerVictory();
-  if (player.hp <= 0)       triggerDeath();
-
-  // 8. Rendu (8 passes)
-  render();
-
-  requestAnimationFrame(gameLoop);
-}
-```
-
----
-
-## 10. Systeme audio
-
-### 10.1 Architecture
-
-L'audio utilise l'API Web Audio native. Pas de librairie audio tierce.
-
-```javascript
-const AudioManager = {
-  ctx: new AudioContext(),
-  musicGain: null,    // GainNode pour la musique
-  sfxGain: null,      // GainNode pour les SFX
-  currentMusic: null, // AudioBufferSourceNode actif
-
-  async playMusic(url, loop = true) { ... },
-  async crossfadeTo(url, duration = 1.0) { ... },
-  async playSFX(url) { ... },
-  setMusicVolume(vol) { this.musicGain.gain.value = vol; },
-  setSFXVolume(vol)   { this.sfxGain.gain.value = vol; },
-  // Deblocage autoplay mobile : appele au premier touch
-  unlock() { if (this.ctx.state === 'suspended') this.ctx.resume(); },
-};
-```
-
-### 10.2 Declenchement contextuel
-
-```
-game loop :
-  - Aucun ennemi a proximite     → crossfadeTo("gameplay-exploration")
-  - Ennemi a moins de 5 tiles    → crossfadeTo("gameplay-combat")
-  - Boss spawn                   → crossfadeTo("boss-fight")
-  - Victoire                     → stopMusic() + playSFX("victory")
-  - Mort                         → stopMusic() + playSFX("game-over")
-
-spawnManager :
-  - Zombie surprise              → playSFX("zombie-spawn-surprise")
-  - Boss apparition              → playSFX("boss-roar")
-
-collision :
-  - Projectile touche ennemi     → playSFX("zombie-hit")
-  - Ennemi tue                   → playSFX("zombie-death")
-  - Joueur touche                → playSFX("player-hit")
-  - Joueur mort                  → playSFX("player-death")
-
-player.move() :
-  - En deplacement               → playSFX("footstep-wood") tous les 0.3s
-
-player.attack() :
-  - Attaque normale              → playSFX("player-attack-whoosh")
-  - Attaque speciale             → playSFX("player-special-electric")
-```
-
----
-
-## 11. Sauvegarde
+## 8. Sauvegarde
 
 ```javascript
 const SaveManager = {
   KEY: 'zombie-house-save',
-
   defaultSave: () => ({
     points: 0,
     maxLevelUnlocked: 1,
-    heroes: {
-      'angel-monster': { unlocked: true, level: 1 },
-      'hero-2':         { unlocked: false, level: 1 },
-      'hero-3':         { unlocked: false, level: 1 },
-    },
-    audio: {
-      musicVolume: 0.4,
-      sfxVolume: 0.7,
-      muted: false,
-    },
+    heroes: { 'angel-monster': { unlocked: true, level: 1 } },
+    audio: { musicVolume: 0.4, sfxVolume: 0.7, muted: false },
   }),
-
-  save(data)  { localStorage.setItem(this.KEY, JSON.stringify(data)); },
-  load()      {
-    const raw = localStorage.getItem(this.KEY);
-    return raw ? JSON.parse(raw) : this.defaultSave();
-  },
+  save(data) { localStorage.setItem(this.KEY, JSON.stringify(data)); },
+  load() { return JSON.parse(localStorage.getItem(this.KEY)) || this.defaultSave(); },
 };
-```
-
----
-
-## 12. Responsive et adaptation ecran
-
-```
-Resolution de base : 390 x 844 (iPhone 14, portrait)
-Scaling            : Le canvas est redimensionne pour remplir la fenetre
-                     en conservant le ratio portrait (letterbox horizontal si necessaire).
-
-Sur Mac (navigateur) :
-  - Canvas centre dans la fenetre du navigateur.
-  - Joysticks HTML masques, controles clavier/souris actives.
-
-Sur mobile :
-  - Canvas plein ecran.
-  - Joystick et boutons HTML overlay actives.
-  - Pinch-to-zoom desactive via meta viewport.
-```
-
----
-
-## 13. Pipeline de developpement
-
-```
-Phase 1 — Fondations (MVP)
-  ├── Renderer 2D Canvas : grille, murs extrudes, Y-sort
-  ├── Atlas de tiles generes par script Python
-  ├── Angel Monster : mouvement, sprites front/back, attaque
-  ├── Joystick virtuel HTML (mobile) + clavier/souris (desktop)
-  ├── 1 ennemi (Zombie Normal) avec IA basique
-  ├── Collision murs + map JSON niveau 1
-  ├── Systeme de vie (coeurs)
-  ├── Systeme de points + sauvegarde localStorage
-  ├── AudioManager Web Audio + musique menu + musique gameplay
-  └── SFX de base (attaque, zombie hit/death, pas)
-
-Phase 2 — Contenu et menus
-  ├── Menu principal + selection personnage
-  ├── Menu amelioration + systeme de niveaux 1-11
-  ├── 4 types de zombies
-  ├── Spawns surprise + SFX surprise
-  ├── Portes + declencheurs + SFX interactions
-  ├── Ecrans mort / victoire + jingles
-  ├── Attaque speciale niveau 11 + SFX electricite
-  ├── Crossfade musical contextuel
-  └── Options volume (musique / SFX / mute)
-
-Phase 3 — Contenu complet
-  ├── 10 maps completes (JSON)
-  ├── Personnages 2 et 3
-  ├── Ambiance sonore par type de salle
-  ├── Polish animations, particules, effets visuels
-  └── PWA manifest pour installation mobile (optionnel)
 ```

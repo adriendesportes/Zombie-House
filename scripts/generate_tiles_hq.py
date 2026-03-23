@@ -1262,6 +1262,55 @@ def gen_furniture_cradle():
     return img
 
 
+def gen_furniture_stairs_broken():
+    """Escalier detruit vu de dessus — marches cassees, debris."""
+    img = Image.new('RGBA', (T * 2, T), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    w, h = T * 2, T
+    # Base pierre
+    d.rectangle([4, 4, w - 5, h - 5], fill=(72, 68, 62))
+    # Marches (5 marches avec perspective)
+    step_h = (h - 10) // 5
+    for i in range(5):
+        y = 5 + i * step_h
+        # Marche de plus en plus large vers le bas (perspective)
+        indent = (4 - i) * 6
+        col_base = (85 + i * 8, 80 + i * 7, 72 + i * 6)
+        # Marche intacte ou cassee
+        if i == 1 or i == 3:
+            # Marche cassee — trou noir + debris
+            d.rectangle([indent + 4, y + 2, w - indent - 5, y + step_h - 2], fill=(25, 22, 18))
+            # Debris
+            for j in range(6):
+                dx = indent + 10 + hash_xy(i, j, 700) % (w - indent * 2 - 25)
+                dy = y + 3 + hash_xy(i, j + 1, 700) % (step_h - 6)
+                sz = 3 + hash_xy(i, j + 2, 700) % 5
+                d.rectangle([dx, dy, dx + sz, dy + sz - 1], fill=(col_base[0] - 10, col_base[1] - 8, col_base[2] - 6))
+            # Fissure
+            d.line([(indent + 15, y + step_h // 2), (w // 2, y + 3)], fill=(40, 35, 28), width=2)
+        else:
+            # Marche intacte
+            d.rectangle([indent + 4, y + 1, w - indent - 5, y + step_h - 1], fill=col_base)
+            # Highlight haut
+            d.line([(indent + 5, y + 2), (w - indent - 6, y + 2)], fill=(col_base[0] + 15, col_base[1] + 13, col_base[2] + 10), width=1)
+            # Ombre bas
+            d.line([(indent + 5, y + step_h - 2), (w - indent - 6, y + step_h - 2)], fill=(col_base[0] - 12, col_base[1] - 10, col_base[2] - 8), width=1)
+            # Usure
+            if hash_xy(i, 10, 710) % 3 == 0:
+                d.ellipse([indent + 20 + hash_xy(i, 11, 710) % 40, y + 4, indent + 30 + hash_xy(i, 11, 710) % 40, y + step_h - 4],
+                          fill=(col_base[0] - 8, col_base[1] - 6, col_base[2] - 5, 100))
+    # Rampe cassee gauche
+    d.rectangle([2, 2, 8, h - 3], fill=(55, 38, 22))
+    d.rectangle([2, 2, 8, h // 3], fill=(55, 38, 22))
+    d.line([(5, h // 3), (5, h // 3 + 15)], fill=(45, 30, 18), width=2)  # cassee
+    # Rampe droite (intacte)
+    d.rectangle([w - 9, 2, w - 3, h - 3], fill=(60, 42, 25))
+    d.rectangle([w - 9, 2, w - 3, h - 3], outline=(35, 25, 15), width=2)
+    # Outline
+    d.rectangle([2, 2, w - 3, h - 3], outline=(35, 28, 18), width=3)
+    return img
+
+
 def gen_furniture_chandelier():
     """Grand lustre suspendu vu de dessus — cercle dore avec bougies."""
     img = Image.new('RGBA', (T, T), (0, 0, 0, 0))
@@ -1625,6 +1674,7 @@ def main():
         gen_furniture_cradle(),      # 6: 1x1 (128x128)
         gen_furniture_chandelier(),  # 7: 1x1 (128x128)
         gen_furniture_grand_door(),  # 8: 2x1 (256x128)
+        gen_furniture_stairs_broken(), # 9: 2x1 (256x128)
     ]
     # Custom atlas: each item gets its own row, max width = 256
     max_w = max(f.size[0] for f in furniture)
@@ -1638,7 +1688,7 @@ def main():
     print(f"  furniture-atlas.png ({len(furniture)} items, {max_w}x{total_h})")
 
     # Also save individual furniture PNGs for easier sprite loading
-    furn_names = ['bed', 'long_table', 'bookshelf', 'bathtub', 'wardrobe', 'fireplace', 'cradle', 'chandelier', 'grand_door']
+    furn_names = ['bed', 'long_table', 'bookshelf', 'bathtub', 'wardrobe', 'fireplace', 'cradle', 'chandelier', 'grand_door', 'stairs_broken']
     for name, fimg in zip(furn_names, furniture):
         fimg.save(os.path.join(OUTPUT, f"furniture-{name}.png"))
         print(f"  furniture-{name}.png ({fimg.size[0]}x{fimg.size[1]})")
