@@ -32,9 +32,9 @@ export class ThreeRenderer {
     this.camera.lookAt(20, 0, 14);
 
     // Lighting
-    const amb = new THREE.AmbientLight(0x283848, 0.5);
+    const amb = new THREE.AmbientLight(0x405868, 0.7);
     this.scene.add(amb);
-    const dir = new THREE.DirectionalLight(0x7888a0, 0.45);
+    const dir = new THREE.DirectionalLight(0x8898b0, 0.6);
     dir.position.set(-5, 10, 5);
     this.scene.add(dir);
 
@@ -110,7 +110,7 @@ export class ThreeRenderer {
     buildBats(this.scene, this);
 
     // Night fog
-    this.scene.fog = new THREE.FogExp2(0x080c15, 0.04);
+    this.scene.fog = new THREE.FogExp2(0x0c1220, 0.03);
     buildTorchLights(this.scene, this);
 
     this.playerMesh = buildPlayer();
@@ -259,22 +259,16 @@ export class ThreeRenderer {
       }
     }
 
-    // Door halo pulse
+    // Door halo pulse (no PointLights — just visual halos)
     for(const dg of this.doorMeshes){
       const dd = dg.userData;
       if(dd.isOpen) continue;
-      // Pulse halos
       const pulse = 0.2 + Math.sin(t * 2.5 + dd.r * 1.3 + dd.c * 0.7) * 0.15;
       dg.children.forEach(ch => {
-        if(ch.material && ch.material.opacity !== undefined && ch.material.transparent && !(ch instanceof THREE.PointLight)){
+        if(ch.material && ch.material.transparent){
           ch.material.opacity = pulse;
         }
       });
-      // Pulse lights
-      if(dd.doorLights){
-        const lightPulse = 1.2 + Math.sin(t * 3 + dd.c * 2) * 0.5;
-        dd.doorLights.forEach(l => l.intensity = lightPulse);
-      }
     }
 
     // Torch flicker
